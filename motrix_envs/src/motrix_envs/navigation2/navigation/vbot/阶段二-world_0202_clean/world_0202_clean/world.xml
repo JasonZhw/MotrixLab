@@ -1,0 +1,31 @@
+<!-- world.xml -->
+<!-- 二阶段，场景组合总入口文件，V是视觉，C是碰撞，CP是检查点-->
+<mujoco>
+
+    <visual>
+        <map zfar="200"/>
+    </visual>
+
+    <asset>
+    <model name="section01C" file="section01/0126_C_section01.xml"/>
+    <model name="section02C" file="section02/0131_C_section02_hotfix1.xml"/>
+    <model name="section03C" file="section03/0126_C_section03.xml"/>
+    <!-- <model name="section123CP" file="world_CP.xml"/> -->
+    <model name="section00V" file="section00/0202_V_section00.xml"/>
+    <model name="section01V" file="section01/0202_V_section01.xml"/>
+    <model name="section02V" file="section02/0202_V_section02.xml"/>
+    <model name="section03V" file="section03/0202_V_section03.xml"/>
+  </asset>
+
+  <worldbody>
+    <attach model="section01C" prefix="0"/>
+    <attach model="section02C" prefix="1"/>
+    <attach model="section03C" prefix="2"/>
+    <!-- <attach model="section123CP" prefix="B"/> -->
+    <attach model="section00V" prefix="3"/>
+    <attach model="section01V" prefix="4"/>
+    <attach model="section02V" prefix="5"/>
+    <attach model="section03V" prefix="6"/>
+  </worldbody>
+  
+</mujoco>

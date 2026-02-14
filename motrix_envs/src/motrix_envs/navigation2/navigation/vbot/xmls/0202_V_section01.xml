@@ -1,0 +1,83 @@
+<mujoco>
+  <compiler angle="radian" assetdir="assets" autolimits="true"/>
+
+  <asset>
+
+    <!-- Textures -->
+    <texture type="2d" colorspace="sRGB" name="LOGOX4_BK_Bake1_CyclesBake S2A_COMBINED" file="LOGOX4_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="linear" name="LOGOX4_BK_Bake1_CyclesBake S2A_COMBINED_RO" file="LOGOX4_BK_Bake1_CyclesBake S2A_COMBINED_RO.png"/>
+    <texture type="2d" colorspace="sRGB" name="LOGOX4_BK_emmision" file="LOGOX4_BK_Bake1_CyclesBake S2A_COMBINED_em.png"/>
+    <texture type="2d" colorspace="sRGB" name="START_BK_Bake1_CyclesBake S2A_COMBINED" file="START_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="Section_1_END_BK_Bake1_CyclesBake S2A_COMBINED" file="Section_1_END_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="linear" name="Section_1_END_BK_Bake1_CyclesBake S2A_COMBINED_RO" file="Section_1_END_BK_Bake1_CyclesBake S2A_COMBINED_RO.png"/>
+    <texture type="2d" colorspace="sRGB" name="Section_1_GOLD_BK_Bake1_CyclesBake S2A_COMBINED" file="Section_1_GOLD_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="Section_1_terrain_BK_Bake1_CyclesBake S2A_COMBINED" file="Section_1_terrain_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="start-point_BK_Bake1_CyclesBake S2A_COMBINED" file="start-point_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+
+    <!-- Materials -->
+    <material name="YELLOW_light.006" rgba="1.0 0.67 0.063 1.0" emission="1.0 0.67 0.063 1.0" emissionintensity="5.0"/>
+    <material name="MI_LOGOX4_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0" emission="1 1 1 1" emissionintensity="1">
+      <layer texture="LOGOX4_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+      <layer texture="LOGOX4_BK_Bake1_CyclesBake S2A_COMBINED_RO" role="orm"/>
+      <layer texture="LOGOX4_BK_emmision" role="emissive"/>
+    </material>
+    <material name="MI_START_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.800000011920929">
+      <layer texture="START_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_Section_1_END_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="Section_1_END_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+      <layer texture="Section_1_END_BK_Bake1_CyclesBake S2A_COMBINED_RO" role="orm"/>
+    </material>
+    <material name="MI_Section_1_GOLD_BK" rgba="1 1 1 1" reflectance="0.5" metallic="1.0" roughness="0.0">
+      <layer texture="Section_1_GOLD_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_Section_1_terrain_BK" rgba="1 1 1 1" reflectance="0.5" metallic="1.0" roughness="1.0">
+      <layer texture="Section_1_terrain_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_white_light" rgba="1.0 1.0 1.0 1.0" emission="1.0 1.0 1.0 1.0" emissionintensity="5.0"/>
+    <material name="bluelight" rgba="0.0 0.25 1.0 1.0" emission="0.0 0.25 1.0 1.0" emissionintensity="5.0"/>
+    <material name="MI_start-point_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="start-point_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+
+    <!-- Visual meshes -->
+    <mesh class="visual" name="V_2026_LIGHT" file="V_2026_LIGHT.obj"/>
+    <mesh class="visual" name="V_LOGOX4_BK" file="V_LOGOX4_BK.obj"/>
+    <mesh class="visual" name="V_START_BK" file="V_START_BK.obj"/>
+    <mesh class="visual" name="V_Section_1_END_BK" file="V_Section_1_END_BK.obj"/>
+    <mesh class="visual" name="V_Section_1_GOLD_BK" file="V_Section_1_GOLD_BK.obj"/>
+    <mesh class="visual" name="V_Section_1_terrain_BK" file="V_Section_1_terrain_BK.obj"/>
+    <mesh class="visual" name="V_arrow_1_LIGHT" file="V_arrow_1_LIGHT.obj"/>
+    <mesh class="visual" name="V_ground_left2_LIGHT" file="V_ground_left2_LIGHT.obj"/>
+    <mesh class="visual" name="V_start-point_003_LIGHT" file="V_start-point_003_LIGHT.obj"/>
+    <mesh class="visual" name="V_start-point_BK" file="V_start-point_BK.obj"/>
+
+    <!-- Collision meshes -->
+  </asset>
+
+  <default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" rgba="1 1 1 1" group="3" contype="1" conaffinity="1"/>
+      </default>
+  </default>
+
+  <worldbody>
+
+    <body name="B_body" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0">
+      <geom class="visual" mesh="V_2026_LIGHT" pos="0.0 7.789973258972168 1.0088530778884888" quat="1.0 0.0 0.0 0.0" material="YELLOW_light.006"/>
+      <geom class="visual" mesh="V_arrow_1_LIGHT" pos="2.384185791015625e-07 3.0717613697052 0.2923547327518463" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_ground_left2_LIGHT" pos="4.76837158203125e-07 1.9148139953613281 1.2470474243164062" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_LOGOX4_BK" pos="5.0 -0.5 0.0" quat="1.0 0.0 0.0 0.0" material="MI_LOGOX4_BK"/>
+      <geom class="visual" mesh="V_Section_1_END_BK" pos="2.967199559972565e-16 7.829628944396973 1.2940952777862549" quat="1.0 0.0 0.0 0.0" material="MI_Section_1_END_BK"/>
+      <geom class="visual" mesh="V_Section_1_GOLD_BK" pos="0.0 4.300259113311768 0.6168984770774841" quat="1.0 0.0 0.0 0.0" material="MI_Section_1_GOLD_BK"/>
+      <geom class="visual" mesh="V_Section_1_terrain_BK" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_Section_1_terrain_BK"/>
+      <geom class="visual" mesh="V_start-point_003_LIGHT" pos="-0.03327923268079758 2.67349910736084 0.3807156980037689" quat="1.0 0.0 0.0 0.0" material="bluelight"/>
+      <geom class="visual" mesh="V_start-point_BK" pos="0.0 -2.5 0.009999999776482582" quat="1.0 0.0 0.0 0.0" material="MI_start-point_BK"/>
+      <geom class="visual" mesh="V_START_BK" pos="0.0 -2.5 0.0" quat="1.0 0.0 0.0 0.0" material="MI_START_BK"/>
+    </body>
+  </worldbody>
+
+</mujoco>

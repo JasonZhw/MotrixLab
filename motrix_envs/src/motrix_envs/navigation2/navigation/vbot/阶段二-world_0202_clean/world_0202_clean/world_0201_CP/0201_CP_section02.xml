@@ -1,0 +1,57 @@
+<mujoco>
+  <compiler angle="radian" assetdir="assets" autolimits="true"/>
+
+  <asset>
+
+    <!-- Textures -->
+
+    <!-- Materials -->
+    <material name="MI_CPgreen" rgba="0.002 0.8 0.0 0.3" reflectance="0.5" metallic="0.0" roughness="1.0"/>
+
+    <!-- Visual meshes -->
+    <mesh class="visual" name="V_Section2-Bonus-01-Circle" file="V_Section2-Bonus-01-Circle.obj"/>
+    <mesh class="visual" name="V_Section2-Bonus-02-Circle" file="V_Section2-Bonus-02-Circle.obj"/>
+    <mesh class="visual" name="V_Section2-Bonus-03-Circle" file="V_Section2-Bonus-03-Circle.obj"/>
+    <mesh class="visual" name="V_Section2-Bonus-04-Circle" file="V_Section2-Bonus-04-Circle.obj"/>
+    <mesh class="visual" name="V_Section2-Bonus-05-Circle" file="V_Section2-Bonus-05-Circle.obj"/>
+    <mesh class="visual" name="V_Section2-Bonus-06-Circle" file="V_Section2-Bonus-06-Circle.obj"/>
+    <mesh class="visual" name="V_Section2-Bonus-07-Circle" file="V_Section2-Bonus-07-Circle.obj"/>
+    <mesh class="visual" name="V_Section2-Bridge-Rect" file="V_Section2-Bridge-Rect.obj"/>
+    <mesh class="visual" name="V_Section2-Finish-Rect" file="V_Section2-Finish-Rect.obj"/>
+    <mesh class="visual" name="V_Section2-Stairs-01-Rect" file="V_Section2-Stairs-01-Rect.obj"/>
+    <mesh class="visual" name="V_Section2-Stairs-02" file="V_Section2-Stairs-02.obj"/>
+    <mesh class="visual" name="V_Section2-Start-Rect" file="V_Section2-Start-Rect.obj"/>
+    <mesh class="visual" name="V_Section3-Start-Rect" file="V_Section3-Start-Rect.obj"/>
+
+    <!-- Collision meshes -->
+  </asset>
+
+  <default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" rgba="1 1 1 1" group="3" contype="1" conaffinity="1"/>
+      </default>
+  </default>
+
+  <worldbody>
+
+    <body name="B_BODY" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0">
+      <geom class="visual" mesh="V_Section2-Bonus-01-Circle" pos="0.3548424243927002 16.266494750976562 1.2940950393676758" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Bonus-02-Circle" pos="3.5002102851867676 16.28154754638672 1.2940950393676758" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Bonus-03-Circle" pos="2.000000476837158 18.098411560058594 1.2940950393676758" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Bonus-04-Circle" pos="0.3559577465057373 19.788726806640625 1.2940950393676758" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Bonus-05-Circle" pos="3.4907329082489014 19.82050323486328 1.2940950393676758" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Bonus-06-Circle" pos="-3.0 17.821199417114258 3.5125441551208496" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Bonus-07-Circle" pos="-2.0 17.821199417114258 1.5" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Bridge-Rect" pos="-3.0 17.821199417114258 3.5125441551208496" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Finish-Rect" pos="4.76837158203125e-07 23.079627990722656 2.294095039367676" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Stairs-01-Rect" pos="0.0 13.204627990722656 2.9033195972442627" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Stairs-02" pos="4.76837158203125e-07 21.929628372192383 2.294095039367676" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section2-Start-Rect" pos="0.0 7.829628944396973 2.294095039367676" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section3-Start-Rect" pos="4.76837158203125e-07 24.329627990722656 2.294095039367676" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+    </body>
+  </worldbody>
+
+</mujoco>

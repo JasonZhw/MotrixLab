@@ -1,0 +1,145 @@
+<mujoco>
+  <compiler angle="radian" assetdir="assets" autolimits="true"/>
+
+  <asset>
+
+    <!-- Textures -->
+    <texture type="2d" colorspace="sRGB" name="LOGO_03_BK_Bake1_CyclesBake_COMBINED" file="LOGO_03_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="SENCE_BEGIN_VISUAL_BK_Bake1_CyclesBake_COMBINED" file="SENCE_BEGIN_VISUAL_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="redbag00" file="redbag00.png"/>
+    <texture type="2d" colorspace="linear" name="redbag00_ro" file="redbag00_ro.png"/>
+    <texture type="2d" colorspace="sRGB" name="end_line_BL_Bake1_CyclesBake_COMBINED" file="end_line_BL_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="goodjob_hand_BK_Bake1_CyclesBake_COMBINED" file="goodjob_hand_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="lantern_body" file="lantern_body.png"/>
+    <texture type="2d" colorspace="sRGB" name="lantern_CLOUD" file="lantern_CLOUD.png"/>
+    <texture type="2d" colorspace="sRGB" name="toy_KNOT_BODY_BK_Bake1_CyclesBake_COMBINED" file="toy_KNOT_BODY_BK_Bake1_CyclesBake_COMBINED.png"/>
+
+    <!-- Materials -->
+    <material name="MI_LOGO_03_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.0">
+      <layer texture="LOGO_03_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="bluelight.002" rgba="0.0 0.25 1.0 1.0" emission="0.0 0.25 1.0 1.0" emissionintensity="5.0"/>
+    <material name="YELLOW_light.006" rgba="1.0 0.67 0.063 1.0" emission="1.0 0.67 0.063 1.0" emissionintensity="5.0"/>
+    <material name="MI_SENCE_BEGIN_VISUAL_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="SENCE_BEGIN_VISUAL_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="redbag_r" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="redbag00" role="rgb"/>
+      <layer texture="redbag00_ro" role="orm"/>
+    </material>
+    <material name="MI_end_line_BL" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="end_line_BL_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="bluelight.001" rgba="0.0 0.25 1.0 1.0" emission="0.0 0.25 1.0 1.0" emissionintensity="5.0"/>
+    <material name="MI_white_light" rgba="1.0 1.0 1.0 1.0" emission="1.0 1.0 1.0 1.0" emissionintensity="5.0"/>
+    <material name="MI_goodjob_hand_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.0">
+      <layer texture="goodjob_hand_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_lantern_01" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="lantern_body" role="rgb"/>
+    </material>
+    <material name="MI_lantern_00" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="lantern_CLOUD" role="rgb"/>
+    </material>
+    <material name="MI_TOY01_YELLOW" rgba="0.20291951298713684 0.09108050167560577 0.005806198343634605 1.0" reflectance="0.5" metallic="0.0" roughness="0.5"/>
+    <material name="MI_toy_KNOT_BODY_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="toy_KNOT_BODY_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="YELLOW_light" rgba="0.823 0.451 0.036 1.0" emission="0.823 0.451 0.036 1.0" emissionintensity="5.0"/>
+    <material name="REDfire_light" rgba="1.0 0.2 0.1 1.0" emission="1.0 0.2 0.1 1.0" emissionintensity="2.0"/>
+    <!-- Visual meshes -->
+    <mesh class="visual" name="V_LOGO_03_BK" file="V_LOGO_03_BK.obj"/>
+    <mesh class="visual" name="V_LOGO_LIGHT" file="V_LOGO_LIGHT.obj"/>
+    <mesh class="visual" name="V_LOGO_LIGHT2" file="V_LOGO_LIGHT2.obj"/>
+    <mesh class="visual" name="V_SENCE_BEGIN_VISUAL_BK" file="V_SENCE_BEGIN_VISUAL_BK.obj"/>
+    <mesh class="visual" name="V_bag_00" file="V_bag_00.obj"/>
+    <mesh class="visual" name="V_end_line_BL" file="V_end_line_BL.obj"/>
+    <mesh class="visual" name="V_end_line_light" file="V_end_line_light.obj"/>
+    <mesh class="visual" name="V_goodjob_LIGHT" file="V_goodjob_LIGHT.obj"/>
+    <mesh class="visual" name="V_goodjob_hand_BK" file="V_goodjob_hand_BK.obj"/>
+    <mesh class="visual" name="V_lantern_1BODY" file="V_lantern_1BODY.obj"/>
+    <mesh class="visual" name="V_lantern_1CLOUD" file="V_lantern_1CLOUD.obj"/>
+    <mesh class="visual" name="V_lantern_1_LIGHT" file="V_lantern_1_LIGHT.obj"/>
+    <mesh class="visual" name="V_lantern_2BODY" file="V_lantern_2BODY.obj"/>
+    <mesh class="visual" name="V_lantern_2CLOUD" file="V_lantern_2CLOUD.obj"/>
+    <mesh class="visual" name="V_lantern_3BODY" file="V_lantern_3BODY.obj"/>
+    <mesh class="visual" name="V_lantern_3CLOUD" file="V_lantern_3CLOUD.obj"/>
+    <mesh class="visual" name="V_lantern_4BODY" file="V_lantern_4BODY.obj"/>
+    <mesh class="visual" name="V_lantern_4CLOUD" file="V_lantern_4CLOUD.obj"/>
+    <mesh class="visual" name="V_lantern_5BODY" file="V_lantern_5BODY.obj"/>
+    <mesh class="visual" name="V_lantern_5CLOUD" file="V_lantern_5CLOUD.obj"/>
+    <mesh class="visual" name="V_sapce_stars_LIGHE" file="V_sapce_stars_LIGHE.obj"/>
+    <mesh class="visual" name="V_toy_KNOT_BODY2" file="V_toy_KNOT_BODY2.obj"/>
+    <mesh class="visual" name="V_toy_KNOT_BODY_BK" file="V_toy_KNOT_BODY_BK.obj"/>
+    <mesh class="visual" name="V_toy_KNOT_BODY_LIGHT" file="V_toy_KNOT_BODY_LIGHT.obj"/>
+    <mesh class="visual" name="V_toy_KNOT_BODY_LIGHT2" file="V_toy_KNOT_BODY_LIGHT2.obj"/>
+    <mesh class="visual" name="V_toy_star_LIGHT" file="V_toy_star_LIGHT.obj"/>
+
+    <!-- Collision meshes -->
+  </asset>
+
+  <default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" rgba="1 1 1 1" group="3" contype="1" conaffinity="1"/>
+      </default>
+  </default>
+
+  <worldbody>
+
+    <body name="B_body" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0">
+      <geom class="visual" mesh="V_bag_00" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="redbag_r"/>
+      <geom class="visual" mesh="V_end_line_BL" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_end_line_BL"/>
+      <geom class="visual" mesh="V_end_line_light" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="bluelight.001"/>
+      <geom class="visual" mesh="V_goodjob_hand_BK" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_goodjob_hand_BK"/>
+      <geom class="visual" mesh="V_goodjob_LIGHT" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_lantern_1_LIGHT" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_lantern_1BODY" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_01"/>
+      <geom class="visual" mesh="V_lantern_1CLOUD" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_00"/>
+      <geom class="visual" mesh="V_lantern_2BODY" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_01"/>
+      <geom class="visual" mesh="V_lantern_2CLOUD" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_00"/>
+      <geom class="visual" mesh="V_lantern_3BODY" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_01"/>
+      <geom class="visual" mesh="V_lantern_3CLOUD" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_00"/>
+      <geom class="visual" mesh="V_lantern_4BODY" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_01"/>
+      <geom class="visual" mesh="V_lantern_4CLOUD" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_00"/>
+      <geom class="visual" mesh="V_lantern_5BODY" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_01"/>
+      <geom class="visual" mesh="V_lantern_5CLOUD" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_lantern_00"/>
+      <geom class="visual" mesh="V_LOGO_03_BK" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_LOGO_03_BK"/>
+      <geom class="visual" mesh="V_LOGO_LIGHT" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="bluelight.002"/>
+      <geom class="visual" mesh="V_LOGO_LIGHT2" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="YELLOW_light.006"/>
+      <geom class="visual" mesh="V_sapce_stars_LIGHE" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="YELLOW_light.006"/>
+      <geom class="visual" mesh="V_SENCE_BEGIN_VISUAL_BK" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_SENCE_BEGIN_VISUAL_BK"/>
+      <geom class="visual" mesh="V_toy_KNOT_BODY2" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_TOY01_YELLOW"/>
+      <geom class="visual" mesh="V_toy_KNOT_BODY_BK" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="MI_toy_KNOT_BODY_BK"/>
+      <geom class="visual" mesh="V_toy_KNOT_BODY_LIGHT" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="YELLOW_light"/>
+      <geom class="visual" mesh="V_toy_KNOT_BODY_LIGHT2" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="REDfire_light"/>
+      <geom class="visual" mesh="V_toy_star_LIGHT" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="YELLOW_light"/>
+      <light name="EL_lantern_light1" pos="-21.461502075195312 3.9055137634277344 4.670798301696777" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light10" pos="19.597692489624023 4.710739612579346 5.786827564239502" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light2" pos="-21.350326538085938 8.547061920166016 4.670798301696777" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light3" pos="-22.007003784179688 27.388065338134766 9.368606567382812" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light4" pos="-17.640636444091797 28.96640396118164 9.368606567382812" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light5" pos="4.299508094787598 43.346656799316406 10.413764953613281" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light6" pos="8.513569831848145 41.397804260253906 10.413764953613281" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light7" pos="17.434412002563477 28.320762634277344 6.846472263336182" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light8" pos="19.660676956176758 24.246444702148438 6.846472263336182" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_lantern_light9" pos="18.987613677978516 9.313362121582031 5.786827564239502" dir="-0.0 -0.0 -1.0" diffuse="0.33 0.16 0.07"   castshadow="false" type="point"/>
+      <light name="EL_Point_001" pos="0.0 11.399622917175293 3.0" dir="-0.0 -0.0 -1.0" diffuse="0.2 0.2 0.2"   castshadow="false" type="point"/>
+      <light name="EL_Point_002" pos="0.3506152629852295 18.71832275390625 2.057535171508789" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_003" pos="0.0 30.317777633666992 3.0" dir="-0.0 -0.0 -1.0" diffuse="0.18 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_004" pos="-1.6132745742797852 17.357210159301758 2.057535171508789" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_005" pos="3.5395054817199707 18.73776626586914 2.057535171508789" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_006" pos="2.0422825813293457 16.948877334594727 2.057535171508789" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_007" pos="0.3700597286224365 14.965542793273926 2.3047287464141846" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_008" pos="3.5395054817199707 15.101654052734375 2.3047287464141846" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_009" pos="-3.013275146484375 17.08498764038086 3.6480393409729004" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_010" pos="0.0 3.5695390701293945 1.612808108329773" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_011" pos="2.981482744216919 3.5695390701293945 1.612808108329773" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Point_012" pos="-3.013890504837036 3.5695390701293945 1.612808108329773" dir="-0.0 -0.0 -1.0" diffuse="0.06 0.0 0.0"   castshadow="false" type="point"/>
+      <light name="EL_Sun" pos="0.0 0.0 48.598670959472656" dir="0.0 0.0 -1.0" diffuse="0.3 0.3 0.3" directional="true" castshadow="true" type="directional"/>
+    </body>
+  </worldbody>
+
+</mujoco>

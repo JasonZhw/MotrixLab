@@ -1,0 +1,47 @@
+<mujoco>
+  <compiler angle="radian" assetdir="assets" autolimits="true"/>
+
+  <asset>
+
+    <!-- Textures -->
+
+    <!-- Materials -->
+    <material name="MI_CPgreen" rgba="0.002 0.8 0.0 0.3" reflectance="0.5" metallic="0.0" roughness="1.0"/>
+
+    <!-- Visual meshes -->
+    <mesh class="visual" name="V_Section1-Bonus-01-Circle" file="V_Section1-Bonus-01-Circle.obj"/>
+    <mesh class="visual" name="V_Section1-Bonus-02-Circle" file="V_Section1-Bonus-02-Circle.obj"/>
+    <mesh class="visual" name="V_Section1-Bonus-03-Circle" file="V_Section1-Bonus-03-Circle.obj"/>
+    <mesh class="visual" name="V_Section1-Bonus-04-Circle" file="V_Section1-Bonus-04-Circle.obj"/>
+    <mesh class="visual" name="V_Section1-Bonus-05-Circle" file="V_Section1-Bonus-05-Circle.obj"/>
+    <mesh class="visual" name="V_Section1-Bonus-06-Circle" file="V_Section1-Bonus-06-Circle.obj"/>
+    <mesh class="visual" name="V_Section1-Finish-Rect" file="V_Section1-Finish-Rect.obj"/>
+    <mesh class="visual" name="V_Section1-Start-Rect" file="V_Section1-Start-Rect.obj"/>
+
+    <!-- Collision meshes -->
+  </asset>
+
+  <default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" rgba="1 1 1 1" group="3" contype="1" conaffinity="1"/>
+      </default>
+  </default>
+
+  <worldbody>
+
+    <body name="B_BODY" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0">
+      <geom class="visual" mesh="V_Section1-Bonus-01-Circle" pos="-3.0 1.862645149230957e-09 0.8360812664031982" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section1-Bonus-02-Circle" pos="1.210719347000122e-08 1.862645149230957e-09 0.8360812664031982" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section1-Bonus-03-Circle" pos="3.0 1.862645149230957e-09 0.8360812664031982" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section1-Bonus-04-Circle" pos="-3.0 4.399157524108887 0.8360812664031982" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section1-Bonus-05-Circle" pos="1.210719347000122e-08 4.399157524108887 0.8360812664031982" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section1-Bonus-06-Circle" pos="3.0 4.399157524108887 0.8360812664031982" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section1-Finish-Rect" pos="5.960464477539063e-08 6.579628944396973 2.0" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section1-Start-Rect" pos="0.0 -2.5 1.0" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+    </body>
+  </worldbody>
+
+</mujoco>

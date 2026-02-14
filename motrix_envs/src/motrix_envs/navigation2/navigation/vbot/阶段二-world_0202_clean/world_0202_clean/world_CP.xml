@@ -1,0 +1,15 @@
+<!-- world.xml -->
+<!-- 无灯光，CP文件仅用于计算得分区域 -->
+<mujoco>
+    <asset>
+    <model name="section01CP" file="world_0201_CP/0201_CP_section01.xml"/>
+    <model name="section02CP" file="world_0201_CP/0201_CP_section02.xml"/>
+    <model name="section03CP" file="world_0201_CP/0201_CP_section03.xml"/>
+  </asset>
+  <worldbody>
+    <!-- 加载碰撞体场景文件 -->
+    <attach model="section01CP" prefix="0"/>
+    <attach model="section02CP" prefix="1"/>
+    <attach model="section03CP" prefix="2"/>
+  </worldbody>
+</mujoco>

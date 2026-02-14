@@ -1,0 +1,65 @@
+<mujoco>
+  <compiler angle="radian" assetdir="assets" autolimits="true"/>
+
+  <asset>
+
+    <!-- Textures -->
+    <texture type="2d" colorspace="sRGB" name="S3_BEGIN_BK_Bake1_CyclesBake_COMBINED" file="S3_BEGIN_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="S3_BEGIN_EDGOLD_BK_Bake1_CyclesBake_COMBINED" file="S3_BEGIN_EDGOLD_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="S3_GoldBall_BK_Bake1_CyclesBake_COMBINED" file="S3_GoldBall_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="chinese_knot_BK_Bake1_CyclesBake_COMBINED" file="chinese_knot_BK_Bake1_CyclesBake_COMBINED.png"/>
+
+    <!-- Materials -->
+    <material name="MI_S3_BEGIN_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.800000011920929">
+      <layer texture="S3_BEGIN_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_S3_BEGIN_EDGOLD_BK" rgba="1 1 1 1" reflectance="0.5" metallic="1.0" roughness="0.5">
+      <layer texture="S3_BEGIN_EDGOLD_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_S3_GoldBall_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.5">
+      <layer texture="S3_GoldBall_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="RED_light.001" rgba="1.0 0.011462525464594364 0.0019158226205036044 1.0" emission="1.0 0.0 0.0 1.0" emissionintensity="3.0"/>
+    <material name="YELLOW_light.005" rgba="0.8227813839912415 0.45078638195991516 0.035601451992988586 1.0" emission="0.82 0.45 0.03 1.0" emissionintensity="3.0"/>
+    <material name="bluelight.001" rgba="0.0 0.25015828013420105 1.0 1.0" emission="0.0 0.25 1.0 1.0" emissionintensity="5.0"/>
+    <material name="MI_chinese_knot_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.0">
+      <layer texture="chinese_knot_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_white_light" rgba="1.0 1.0 1.0 1.0" emission="1.0 1.0 1.0 1.0" emissionintensity="5.0"/>
+
+    <!-- Visual meshes -->
+    <mesh class="visual" name="V_S3_BEGIN_BK" file="V_S3_BEGIN_BK.obj"/>
+    <mesh class="visual" name="V_S3_BEGIN_EDGOLD_BK" file="V_S3_BEGIN_EDGOLD_BK.obj"/>
+    <mesh class="visual" name="V_S3_GoldBall_BK" file="V_S3_GoldBall_BK.obj"/>
+    <mesh class="visual" name="V_S3_Little_Light_rooball" file="V_S3_Little_Light_rooball.obj"/>
+    <mesh class="visual" name="V_Section_3_ground_Text_LIGHT" file="V_Section_3_ground_Text_LIGHT.obj"/>
+    <mesh class="visual" name="V_Section_3_terrainB_LIGHT" file="V_Section_3_terrainB_LIGHT.obj"/>
+    <mesh class="visual" name="V_chinese_knot_BK" file="V_chinese_knot_BK.obj"/>
+    <mesh class="visual" name="V_chinese_knot_LIGHT" file="V_chinese_knot_LIGHT.obj"/>
+
+    <!-- Collision meshes -->
+  </asset>
+
+  <default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" rgba="1 1 1 1" group="3" contype="1" conaffinity="1"/>
+      </default>
+  </default>
+
+  <worldbody>
+
+    <body name="B_body" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0">
+      <geom class="visual" mesh="V_chinese_knot_BK" pos="-1.1920928955078125e-07 32.29999923706055 1.4972995519638062" quat="1.0 0.0 0.0 0.0" material="MI_chinese_knot_BK"/>
+      <geom class="visual" mesh="V_chinese_knot_LIGHT" pos="-4.541306708460979e-08 32.30000305175781 1.4885804653167725" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_S3_BEGIN_BK" pos="4.76837158203125e-07 26.329627990722656 1.2940952777862549" quat="1.0 0.0 0.0 0.0" material="MI_S3_BEGIN_BK"/>
+      <geom class="visual" mesh="V_S3_BEGIN_EDGOLD_BK" pos="4.76837158203125e-07 26.329627990722656 1.2940952777862549" quat="1.0 0.0 0.0 0.0" material="MI_S3_BEGIN_EDGOLD_BK"/>
+      <geom class="visual" mesh="V_S3_GoldBall_BK" pos="-3.0 31.22962760925293 0.8440953493118286" quat="1.0 0.0 0.0 0.0" material="MI_S3_GoldBall_BK"/>
+      <geom class="visual" mesh="V_S3_Little_Light_rooball" pos="4.76837158203125e-07 26.329627990722656 1.2940952777862549" quat="1.0 0.0 0.0 0.0" material="RED_light.001"/>
+      <geom class="visual" mesh="V_Section_3_ground_Text_LIGHT" pos="0.0 34.811279296875 2.6257636547088623" quat="0.9700934886932373 0.24273152649402618 5.3897232520660714e-17 -3.4107253207008084e-24" material="YELLOW_light.005"/>
+      <geom class="visual" mesh="V_Section_3_terrainB_LIGHT" pos="4.76837158203125e-07 29.329627990722656 1.2940952777862549" quat="1.0 0.0 0.0 0.0" material="bluelight.001"/>
+    </body>
+  </worldbody>
+</mujoco>

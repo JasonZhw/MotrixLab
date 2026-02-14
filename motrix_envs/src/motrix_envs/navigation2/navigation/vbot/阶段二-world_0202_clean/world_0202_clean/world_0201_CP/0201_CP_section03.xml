@@ -1,0 +1,35 @@
+<mujoco>
+  <compiler angle="radian" assetdir="assets" autolimits="true"/>
+
+  <asset>
+
+    <!-- Textures -->
+
+    <!-- Materials -->
+    <material name="MI_CPgreen" rgba="0.002 0.8 0.0 0.3" reflectance="0.5" metallic="0.0" roughness="1.0"/>
+
+    <!-- Visual meshes -->
+    <mesh class="visual" name="V_Section3-BallChallenge-Rect" file="V_Section3-BallChallenge-Rect.obj"/>
+    <mesh class="visual" name="V_Section3-Finish-Rect" file="V_Section3-Finish-Rect.obj"/>
+
+    <!-- Collision meshes -->
+  </asset>
+
+  <default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" rgba="1 1 1 1" group="3" contype="1" conaffinity="1"/>
+      </default>
+  </default>
+
+  <worldbody>
+
+    <body name="B_BODY" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0">
+      <geom class="visual" mesh="V_Section3-BallChallenge-Rect" pos="4.76837158203125e-07 26.579627990722656 2.294095039367676" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+      <geom class="visual" mesh="V_Section3-Finish-Rect" pos="0.050000905990600586 32.52962875366211 2.4940953254699707" quat="1.0 0.0 0.0 0.0" material="MI_CPgreen"/>
+    </body>
+  </worldbody>
+
+</mujoco>

@@ -1,0 +1,121 @@
+<mujoco>
+  <compiler angle="radian" assetdir="assets" autolimits="true"/>
+
+  <asset>
+
+    <!-- Textures -->
+    <texture type="2d" colorspace="sRGB" name="Cone_BK_Bake1_CyclesBake S2A_COMBINED" file="Cone_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="GoldBall_BK_Bake1_CyclesBake S2A_COMBINED" file="GoldBall_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="S2_SLOP_BK_Bake1_CyclesBake_COMBINED" file="S2_SLOP_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="linear" name="S2_SLOP_BK_Bake1_CyclesBake_COMBINED_ro" file="S2_SLOP_BK_Bake1_CyclesBake_COMBINED_ro.png"/>
+    <texture type="2d" colorspace="sRGB" name="S2_bluefloor_BK_Bake1_CyclesBake_COMBINED" file="S2_bluefloor_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="Section_2_terrain_BK_Bake1_CyclesBake S2A_COMBINED" file="Section_2_terrain_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="bridge_Cylinder_BK_Bake1_CyclesBake_COMBINED" file="bridge_Cylinder_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="bridge_barrier_Bake1_CyclesBake S2A_COMBINED" file="bridge_barrier_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="bridge_step_BK_Bake1_CyclesBake S2A_COMBINED" file="bridge_step_BK_Bake1_CyclesBake S2A_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="columnA_pt1_BK_Bake1_CyclesBake_COMBINED" file="columnA_pt1_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="s2_END_gold_BK_Bake1_CyclesBake_COMBINED" file="s2_END_gold_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="s2_end_BK_Bake1_CyclesBake_COMBINED" file="s2_end_BK_Bake1_CyclesBake_COMBINED.png"/>
+    <texture type="2d" colorspace="sRGB" name="stepblock_BK_Bake1_CyclesBake_COMBINED" file="stepblock_BK_Bake1_CyclesBake_COMBINED.png"/>
+
+    <!-- Materials -->
+    <material name="MI_Cone_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.0">
+      <layer texture="Cone_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_GoldBall_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.5">
+      <layer texture="GoldBall_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_white_light" rgba="1.0 1.0 1.0 1.0" emission="1.0 1.0 1.0 1.0" emissionintensity="5.0"/>
+    <material name="MI_S2_SLOP_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="S2_SLOP_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+      <layer texture="S2_SLOP_BK_Bake1_CyclesBake_COMBINED_ro" role="orm"/>
+    </material>
+    <material name="MI_S2_bluefloor_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.5">
+      <layer texture="S2_bluefloor_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="YELLOW_light.006" rgba="1.0 0.6704580187797546 0.06337152421474457 1.0" emission="1.0 0.67 0.0 1.0" emissionintensity="3.0"/>
+    <material name="MI_Section_2_terrain_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.5">
+      <layer texture="Section_2_terrain_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_bridge_Cylinder_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.800000011920929">
+      <layer texture="bridge_Cylinder_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_bridge_barrier_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.5">
+      <layer texture="bridge_barrier_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_bridge_step_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.5">
+      <layer texture="bridge_step_BK_Bake1_CyclesBake S2A_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_columnA_pt1_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="1.0">
+      <layer texture="columnA_pt1_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="RED_light.001" rgba="1.0 0.011462525464594364 0.0019158226205036044 1.0" emission="1.0 0.0 0.0 1.0" emissionintensity="5.0"/>
+    <material name="MI_s2_END_gold_BK" rgba="1 1 1 1" reflectance="0.5" metallic="1.0" roughness="0.0">
+      <layer texture="s2_END_gold_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_s2_end_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.800000011920929">
+      <layer texture="s2_end_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_stepblock_BK" rgba="1 1 1 1" reflectance="0.5" metallic="0.0" roughness="0.800000011920929">
+      <layer texture="stepblock_BK_Bake1_CyclesBake_COMBINED" role="rgb"/>
+    </material>
+    <material name="MI_RED" rgba="0.5906158089637756 0.008023164235055447 0.001517647528089583 1.0" reflectance="0.5" metallic="0.0" roughness="1.0"/>
+
+    <!-- Visual meshes -->
+    <mesh class="visual" name="V_Cone_BK" file="V_Cone_BK.obj"/>
+    <mesh class="visual" name="V_GoldBall_BK" file="V_GoldBall_BK.obj"/>
+    <mesh class="visual" name="V_S2_Little_Light" file="V_S2_Little_Light.obj"/>
+    <mesh class="visual" name="V_S2_SLOP_BK" file="V_S2_SLOP_BK.obj"/>
+    <mesh class="visual" name="V_S2_bluefloor_BK" file="V_S2_bluefloor_BK.obj"/>
+    <mesh class="visual" name="V_S2_daji_LIGHT" file="V_S2_daji_LIGHT.obj"/>
+    <mesh class="visual" name="V_S2_ground_light" file="V_S2_ground_light.obj"/>
+    <mesh class="visual" name="V_Section_2_terrain_BK" file="V_Section_2_terrain_BK.obj"/>
+    <mesh class="visual" name="V_arrow_3_LIGHT" file="V_arrow_3_LIGHT.obj"/>
+    <mesh class="visual" name="V_bridge_Cylinder_BK" file="V_bridge_Cylinder_BK.obj"/>
+    <mesh class="visual" name="V_bridge_barrier_BK" file="V_bridge_barrier_BK.obj"/>
+    <mesh class="visual" name="V_bridge_step_BK" file="V_bridge_step_BK.obj"/>
+    <mesh class="visual" name="V_columnA_pt1_BK" file="V_columnA_pt1_BK.obj"/>
+    <mesh class="visual" name="V_columnA_pt3_LIGHT" file="V_columnA_pt3_LIGHT.obj"/>
+    <mesh class="visual" name="V_columnA_pt4_light" file="V_columnA_pt4_light.obj"/>
+    <mesh class="visual" name="V_s2_END_gold_BK" file="V_s2_END_gold_BK.obj"/>
+    <mesh class="visual" name="V_s2_end_BK" file="V_s2_end_BK.obj"/>
+    <mesh class="visual" name="V_stepblock_BK" file="V_stepblock_BK.obj"/>
+    <mesh class="visual" name="V_stepblock_outline" file="V_stepblock_outline.obj"/>
+
+    <!-- Collision meshes -->
+  </asset>
+
+  <default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" rgba="1 1 1 1" group="3" contype="1" conaffinity="1"/>
+      </default>
+  </default>
+
+  <worldbody>
+
+    <body name="B_body" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0">
+      <geom class="visual" mesh="V_arrow_3_LIGHT" pos="-2.999999523162842 17.731996536254883 2.7990949153900146" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_bridge_barrier_BK" pos="-4.319393157958984 17.829622268676758 2.810610055923462" quat="1.0 0.0 0.0 0.0" material="MI_bridge_barrier_BK"/>
+      <geom class="visual" mesh="V_bridge_Cylinder_BK" pos="-2.999999523162842 17.8212947845459 2.041141986846924" quat="1.0 0.0 0.0 0.0" material="MI_bridge_Cylinder_BK"/>
+      <geom class="visual" mesh="V_bridge_step_BK" pos="-3.0 17.821199417114258 2.578761339187622" quat="1.0 0.0 0.0 0.0" material="MI_bridge_step_BK"/>
+      <geom class="visual" mesh="V_columnA_pt1_BK" pos="-1.6806052923202515 15.201314926147461 3.0117130279541016" quat="1.0 0.0 0.0 0.0" material="MI_columnA_pt1_BK"/>
+      <geom class="visual" mesh="V_columnA_pt3_LIGHT" pos="-1.6806052923202515 15.201314926147461 3.0117130279541016" quat="1.0 0.0 0.0 0.0" material="RED_light.001"/>
+      <geom class="visual" mesh="V_columnA_pt4_light" pos="-1.6806052923202515 15.201314926147461 3.0117130279541016" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_Cone_BK" pos="4.76837158203125e-07 10.329628944396973 1.9533356428146362" quat="1.0 0.0 0.0 0.0" material="MI_Cone_BK"/>
+      <geom class="visual" mesh="V_GoldBall_BK" pos="1.9437782764434814 17.788362503051758 1.1200001239776611" quat="1.0 0.0 0.0 0.0" material="MI_GoldBall_BK"/>
+      <geom class="visual" mesh="V_S2_bluefloor_BK" pos="2.384185791015625e-07 15.912961959838867 1.127428650856018" quat="1.0 0.0 0.0 0.0" material="MI_S2_bluefloor_BK"/>
+      <geom class="visual" mesh="V_S2_daji_LIGHT" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" material="YELLOW_light.006"/>
+      <geom class="visual" mesh="V_s2_end_BK" pos="5.250000953674316 24.329627990722656 1.8940951824188232" quat="1.9470718370939721e-07 0.0 0.0 -1.0" material="MI_s2_end_BK"/>
+      <geom class="visual" mesh="V_s2_END_gold_BK" pos="2.967199559972565e-16 24.329627990722656 1.2940952777862549" quat="1.0 0.0 0.0 0.0" material="MI_s2_END_gold_BK"/>
+      <geom class="visual" mesh="V_S2_ground_light" pos="4.76837158203125e-07 24.329627990722656 1.8940951824188232" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_S2_Little_Light" pos="-3.473833487532829e-07 17.652734756469727 1.6798871755599976" quat="1.0 0.0 0.0 0.0" material="MI_white_light"/>
+      <geom class="visual" mesh="V_S2_SLOP_BK" pos="4.76837158203125e-07 17.829627990722656 2.294095277786255" quat="1.0 0.0 0.0 0.0" material="MI_S2_SLOP_BK"/>
+      <geom class="visual" mesh="V_Section_2_terrain_BK" pos="4.76837158203125e-07 10.329628944396973 1.2940952777862549" quat="1.0 0.0 0.0 0.0" material="MI_Section_2_terrain_BK"/>
+      <geom class="visual" mesh="V_stepblock_BK" pos="-0.47903966903686523 17.337711334228516 1.8420194387435913" quat="1.0 0.0 0.0 0.0" material="MI_stepblock_BK"/>
+      <geom class="visual" mesh="V_stepblock_outline" pos="-0.47903966903686523 17.337711334228516 1.8420194387435913" quat="1.0 0.0 0.0 0.0" material="MI_RED"/>
+    </body>
+  </worldbody>
+</mujoco>
