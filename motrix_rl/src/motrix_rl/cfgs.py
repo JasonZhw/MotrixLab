@@ -302,3 +302,174 @@ class navigation:
         # Medium-sized network (default configuration, suitable for most tasks)
         policy_hidden_layer_sizes: tuple[int, ...] = (256, 128, 64)
         value_hidden_layer_sizes: tuple[int, ...] = (256, 128, 64)
+
+    @rlcfg("vbot_navigation_flat")
+    @dataclass
+    class VBotNavigationPPOConfig(PPOCfg):
+        seed: int = 42
+        num_envs: int = 2048
+        play_num_envs: int = 16
+        max_env_steps: int = 100_000_000
+        check_point_interval: int = 1000
+
+        learning_rate: float = 3e-4
+        rollouts: int = 48
+        learning_epochs: int = 6
+        mini_batches: int = 32
+        discount_factor: float = 0.99
+        lambda_param: float = 0.95
+        grad_norm_clip: float = 1.0
+
+        ratio_clip: float = 0.2
+        value_clip: float = 0.2
+        clip_predicted_values: bool = True
+
+        policy_hidden_layer_sizes: tuple[int, ...] = (256, 128, 64)
+        value_hidden_layer_sizes: tuple[int, ...] = (256, 128, 64)
+
+    @rlcfg("vbot_navigation_stairs")
+    @dataclass
+    class VBotNavigationStairsPPOConfig(PPOCfg):
+        """VBot stairs导航配置，与locomotion stairs一致"""
+        seed: int = 42
+        share_policy_value_features: bool = False
+        max_env_steps: int = 1024 * 60_000  # 与locomotion一致
+        num_envs: int = 2048
+
+        # 与locomotion stairs一致的PPO配置
+        rollouts: int = 24
+        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        learning_epochs: int = 5
+        mini_batches: int = 3
+        learning_rate: float = 3e-4
+
+    @rlcfg("VBotStairsMultiTarget-v0")
+    @dataclass
+    class VBotNavigationStairsPPOConfig(PPOCfg):
+        """VBot stairs导航配置，与locomotion stairs一致"""
+        seed: int = 42
+        share_policy_value_features: bool = False
+        max_env_steps: int = 1024 * 60_000  # 与locomotion一致
+        num_envs: int = 2048
+
+        # 与locomotion stairs一致的PPO配置
+        rollouts: int = 24
+        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        learning_epochs: int = 5
+        mini_batches: int = 3
+        learning_rate: float = 3e-4
+
+    @rlcfg("vbot_navigation_stairs_obstacles")
+    @dataclass
+    class VBotNavigationStairsPPOConfig(PPOCfg):
+        """VBot stairs导航配置，与locomotion stairs一致"""
+        seed: int = 42
+        share_policy_value_features: bool = False
+        max_env_steps: int = 1024 * 60_000  # 与locomotion一致
+        num_envs: int = 2048
+
+        # 与locomotion stairs一致的PPO配置
+        rollouts: int = 24
+        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        learning_epochs: int = 5
+        mini_batches: int = 3
+        learning_rate: float = 3e-4
+
+    @rlcfg("vbot_navigation_section01")
+    @dataclass
+    class VBotNavigationSection01PPOConfig(PPOCfg):
+        """VBot Section01导航配置，与flatnavigation一致"""
+        seed: int = 42
+        # num_envs: int = 2048
+        num_envs: int = 4096
+        play_num_envs: int = 1
+        max_env_steps: int = 1024 * 60_000
+        check_point_interval: int = 1000
+
+        learning_rate: float = 3e-4
+        rollouts: int = 48
+        learning_epochs: int = 6
+        mini_batches: int = 32
+        discount_factor: float = 0.99
+        lambda_param: float = 0.95
+        grad_norm_clip: float = 1.0
+
+        ratio_clip: float = 0.2
+        value_clip: float = 0.2
+        clip_predicted_values: bool = True
+
+        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+
+    @rlcfg("vbot_navigation_section02")
+    @dataclass
+    class VBotNavigationSection02PPOConfig(PPOCfg):
+        """VBot Section02导航配置，与flatnavigation一致"""
+        seed: int = 42
+        num_envs: int = 2048
+        play_num_envs: int = 16
+        max_env_steps: int = 1024 * 60_000
+        check_point_interval: int = 1000
+
+        learning_rate: float = 3e-4
+        rollouts: int = 48
+        learning_epochs: int = 6
+        mini_batches: int = 32
+        discount_factor: float = 0.99
+        lambda_param: float = 0.95
+        grad_norm_clip: float = 1.0
+
+        ratio_clip: float = 0.2
+        value_clip: float = 0.2
+        clip_predicted_values: bool = True
+
+        policy_hidden_layer_sizes: tuple[int, ...] = (256, 128, 64)
+        value_hidden_layer_sizes: tuple[int, ...] = (256, 128, 64)
+
+    @rlcfg("vbot_navigation_section03")
+    @dataclass
+    class VBotNavigationSection03PPOConfig(PPOCfg):
+        """VBot Section03导航配置，与flatnavigation一致"""
+        seed: int = 42
+        num_envs: int = 2048
+        play_num_envs: int = 16
+        max_env_steps: int = 1024 * 60_000
+        check_point_interval: int = 1000
+
+        learning_rate: float = 3e-4
+        rollouts: int = 48
+        learning_epochs: int = 6
+        mini_batches: int = 32
+        discount_factor: float = 0.99
+        lambda_param: float = 0.95
+        grad_norm_clip: float = 1.0
+
+        ratio_clip: float = 0.2
+        value_clip: float = 0.2
+        clip_predicted_values: bool = True
+
+        policy_hidden_layer_sizes: tuple[int, ...] = (256, 128, 64)
+        value_hidden_layer_sizes: tuple[int, ...] = (256, 128, 64)
+
+    @rlcfg("vbot_navigation_long_course")
+    @dataclass
+    class VBotNavigationStairsPPOConfig(PPOCfg):
+        """VBot stairs导航配置，与locomotion stairs一致"""
+        seed: int = 42
+        share_policy_value_features: bool = False
+        max_env_steps: int = 1024 * 60_000  # 与locomotion一致
+        num_envs: int = 2048
+
+        # 与locomotion stairs一致的PPO配置
+        rollouts: int = 24
+        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        learning_epochs: int = 5
+        mini_batches: int = 3
+        learning_rate: float = 3e-4
+
+
+
