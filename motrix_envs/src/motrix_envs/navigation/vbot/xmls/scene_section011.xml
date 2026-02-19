@@ -21,7 +21,7 @@
     
     <!-- 加载需要的模型 -->
     <model name="section01V" file="0202_V_section01.xml"/>  <!-- 视觉模型 -->
-    <model name="section01C" file="0131_C_section01.xml"/>  <!-- 碰撞模型 -->
+    <model name="section01C" file="0126_C_section01.xml"/>  <!-- 碰撞模型 -->
     <model name="section00V" file="0202_V_section00.xml"/>  
   </asset>
 
@@ -37,11 +37,11 @@
 
   <sensor>
     <!-- 传感器配置 -->
-    <contact name="FR_foot_contact" subtree1="FR_foot" subtree2="C_B_BODY" data="normal" num="1" />
-    <contact name="FL_foot_contact" subtree1="FL_foot" subtree2="C_B_BODY" data="normal" num="1" />
-    <contact name="RR_foot_contact" subtree1="RR_foot" subtree2="C_B_BODY" data="normal" num="1" />
-    <contact name="RL_foot_contact" subtree1="RL_foot" subtree2="C_B_BODY" data="normal" num="1" />
-    <contact name="base_contact" subtree1="base" subtree2="C_B_BODY" data="normal" num="1" />
+    <contact name="FR_foot_contact" subtree1="FR_foot" subtree2="C_ground_root" data="normal" num="1" />
+    <contact name="FL_foot_contact" subtree1="FL_foot" subtree2="C_ground_root" data="normal" num="1" />
+    <contact name="RR_foot_contact" subtree1="RR_foot" subtree2="C_ground_root" data="normal" num="1" />
+    <contact name="RL_foot_contact" subtree1="RL_foot" subtree2="C_ground_root" data="normal" num="1" />
+    <contact name="base_contact" subtree1="base" subtree2="C_ground_root" data="normal" num="1" />
   </sensor>
 
 </mujoco>

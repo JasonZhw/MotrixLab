@@ -310,7 +310,7 @@ class VBotSection011EnvCfg(VBotStairsEnvCfg):
     @dataclass
     class InitState:
         # 起始位置：随机化范围内生成
-        pos = [0.0, -2.4, 0.5]  # 中心位置
+        pos = [0.0, 7.5, 2.0]  # 中心位置
         pos_randomization_range = [-0.5, -0.5, 0.5, 0.5]  # X±0.5m, Y±0.5m随机
 
         default_joint_angles = {

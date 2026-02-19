@@ -21,7 +21,7 @@
     
     <!-- 加载需要的模型 -->
     <model name="section01V" file="0202_V_section01.xml"/>  <!-- 视觉模型 -->
-    <model name="section01C" file="0131_C_section01.xml"/>  <!-- 碰撞模型 -->
+    <model name="section01C" file="0126_C_section01.xml"/>  <!-- 碰撞模型 -->
     <model name="section02C" file="0131_C_section02_hotfix1.xml"/> 
     <model name="section02V" file="0202_V_section02.xml"/>  
     <model name="section03C" file="0126_C_section03.xml"/> 
@@ -46,11 +46,11 @@
 
   <sensor>
     <!-- 传感器配置 -->
-    <contact name="FR_foot_contact_1" subtree1="FR_foot" subtree2="C1_B_BODY" data="normal" num="1" />
-    <contact name="FL_foot_contact_1" subtree1="FL_foot" subtree2="C1_B_BODY" data="normal" num="1" />
-    <contact name="RR_foot_contact_1" subtree1="RR_foot" subtree2="C1_B_BODY" data="normal" num="1" />
-    <contact name="RL_foot_contact_1" subtree1="RL_foot" subtree2="C1_B_BODY" data="normal" num="1" />
-    <contact name="base_contact_1" subtree1="base" subtree2="C1_B_BODY" data="normal" num="1" />
+    <contact name="FR_foot_contact_1" subtree1="FR_foot" subtree2="C1_ground_root" data="normal" num="1" />
+    <contact name="FL_foot_contact_1" subtree1="FL_foot" subtree2="C1_ground_root" data="normal" num="1" />
+    <contact name="RR_foot_contact_1" subtree1="RR_foot" subtree2="C1_ground_root" data="normal" num="1" />
+    <contact name="RL_foot_contact_1" subtree1="RL_foot" subtree2="C1_ground_root" data="normal" num="1" />
+    <contact name="base_contact_1" subtree1="base" subtree2="C1_ground_root" data="normal" num="1" />
 
     <contact name="FR_foot_contact_2" subtree1="FR_foot" subtree2="C2_ground_root" data="normal" num="1" />
     <contact name="FL_foot_contact_2" subtree1="FL_foot" subtree2="C2_ground_root" data="normal" num="1" />
