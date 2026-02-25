@@ -61,7 +61,7 @@ class InitState:
         "RL_thigh_joint": 0.9,    # 左后大腿
         "RL_calf_joint": -1.8,    # 左后小腿
     }
-
+#四足12个维度 髋关节 大腿 小腿 每条腿3个关节，共4条腿12个关节角度
 @dataclass
 class Commands:
     # 目标位置相对于机器人初始位置的偏移范围 [dx_min, dy_min, yaw_min, dx_max, dy_max, yaw_max]
@@ -113,6 +113,7 @@ class RewardConfig:
         }
     )
 
+#开始配置类注册装饰器针对不同的导航场景 但先实现基础的平地导航配置，后续在此基础上进行继承和修改以适应不同地形（楼梯、三段地形等）
 @registry.envcfg("vbot_navigation_flat")
 @dataclass
 class VBotEnvCfg(EnvCfg):
@@ -210,18 +211,26 @@ class VBotLongCourseEnvCfg(VBotStairsEnvCfg):
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
 @registry.envcfg("vbot_navigation_section001")
-#通过 @registry.envcfg("vbot_navigation_section001") 注册
 @dataclass
 class VBotSection001EnvCfg(VBotStairsEnvCfg):
-    """VBot Section01单独训练配置 - 高台楼梯地形"""
+    """VBot Section001圆形竞技场导航配置 - 外环出生，中心目标"""
     model_file: str = os.path.dirname(__file__) + "/xmls/scene_section001.xml"
-    max_episode_seconds: float = 40.0  # 拉长一倍：从20秒增加到40秒
-    max_episode_steps: int = 4000  # 拉长一倍：从2000步增加到4000步
+    max_episode_seconds: float = 40.0
+    max_episode_steps: int = 4000
+    render_spacing: float = 0.0    # 修改渲染间距为0，使地图重叠
+    
     @dataclass
     class InitState:
-        # 起始位置：随机化范围内生成
-        pos = [0.0, -2.4, 0.5]  # 中心位置
-        pos_randomization_range = [-0.5, -0.5, 0.5, 0.5]  # X±0.5m, Y±0.5m随机
+        # 圆形场地中心作为参考原点
+        pos = [0.0, 0.0, 0.5]
+
+        # 外环出生区域半径范围（两根白线之间）
+        # 根据实际场地XML调整这两个值
+        spawn_ring_radius_min: float = 10.5 # 内白线半径 [m]
+        spawn_ring_radius_max: float = 11.5  # 外白线半径 [m]
+
+        # 保持矩形随机化字段兼容性（实际不再使用，spawn改为圆形）
+        pos_randomization_range = [-4.5, -4.5, 4.5, 4.5]
 
         default_joint_angles = {
             "FR_hip_joint": -0.0,
@@ -237,25 +246,28 @@ class VBotSection001EnvCfg(VBotStairsEnvCfg):
             "RL_thigh_joint": 0.9,
             "RL_calf_joint": -1.8,
         }
+
     @dataclass
     class Commands:
-        # 目标位置：缩短距离，固定目标点
-        # 起始位置Y=-2.4, 目标Y=3.6, 距离=6米（与vbot_np相近）
-        # pose_command_range = [0.0, 3.6, 0.0, 0.0, 3.6, 0.0]
-        # 原始配置（已注释）：
-        # 目标位置：固定在终止角范围远端（完全无随机化）
-        # 固定目标点: X=0, Y=10.2, Z=2 (Z通过XML控制)
-        # 起始位置Y=-2.4, 目标Y=10.2, 距离=12.6米
-        pose_command_range = [0.0, 10.2, 0.0, 0.0, 10.2, 0.0]
+        # 目标点固定在场地中心 (0, 0)，yaw随机（朝向不限）
+        # 格式: [x_min, y_min, yaw_min, x_max, y_max, yaw_max]
+        # x/y 相同则为固定目标；这里目标是绝对坐标(0,0)，在reset中直接赋值
+        pose_command_range = [0.0, 0.0, -3.14159, 0.0, 0.0, 3.14159]
+        
+        # 目标中心位置（蓝色光环中心）
+        target_center = [0.0, 0.0, 0.5]
+        # 目标位置范围（蓝色光环半径）
+        target_range = [0.5, 0.5, 0.0]
+
     @dataclass
     class ControlConfig:
         action_scale = 0.25
+
     init_state: InitState = field(default_factory=InitState)
     commands: Commands = field(default_factory=Commands)
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
 @registry.envcfg("vbot_navigation_section01")
-#通过 @registry.envcfg("vbot_navigation_section01") 注册
 @dataclass
 class VBotSection01EnvCfg(VBotStairsEnvCfg):
     """VBot Section01单独训练配置 - 高台楼梯地形"""
@@ -264,8 +276,7 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
     max_episode_steps: int = 4000  # 拉长一倍：从2000步增加到4000步
     @dataclass
     class InitState:
-        # 起始位置：随机化范围内生成
-        pos = [0.0, -2.4, 0.5]  # 中心位置
+
         pos_randomization_range = [-0.5, -0.5, 0.5, 0.5]  # X±0.5m, Y±0.5m随机
 
         default_joint_angles = {
@@ -300,7 +311,6 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
 @registry.envcfg("vbot_navigation_section011")
-#通过 @registry.envcfg("vbot_navigation_section011") 注册
 @dataclass
 class VBotSection011EnvCfg(VBotStairsEnvCfg):
     """VBot Section01单独训练配置 - 高台楼梯地形"""
@@ -345,7 +355,6 @@ class VBotSection011EnvCfg(VBotStairsEnvCfg):
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
 @registry.envcfg("vbot_navigation_section012")
-#通过 @registry.envcfg("vbot_navigation_section012") 注册
 @dataclass
 class VBotSection012EnvCfg(VBotStairsEnvCfg):
     """VBot Section01单独训练配置 - 高台楼梯地形"""
@@ -390,7 +399,6 @@ class VBotSection012EnvCfg(VBotStairsEnvCfg):
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
 @registry.envcfg("vbot_navigation_section013")
-#通过 @registry.envcfg("vbot_navigation_section013") 注册
 @dataclass
 class VBotSection013EnvCfg(VBotStairsEnvCfg):
     """VBot Section01单独训练配置 - 高台楼梯地形"""
@@ -433,4 +441,3 @@ class VBotSection013EnvCfg(VBotStairsEnvCfg):
     init_state: InitState = field(default_factory=InitState)
     commands: Commands = field(default_factory=Commands)
     control_config: ControlConfig = field(default_factory=ControlConfig)
-

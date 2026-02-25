@@ -51,6 +51,7 @@ class VBotSection001Env(NpEnv):
         
         # 初始化机器人body和接触
         self._body = self._model.get_body(cfg.asset.body_name)
+       
         self._init_contact_geometry()
         
         # 获取目标标记的body
@@ -67,7 +68,7 @@ class VBotSection001Env(NpEnv):
         # 动作和观测空间
         self._action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(12,), dtype=np.float32)
         # 观测空间：67维（55 + 12维接触力）
-        self._observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(54,), dtype=np.float32)
+        self._observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(67,), dtype=np.float32)
         
         self._num_dof_pos = self._model.num_dof_pos
         self._num_dof_vel = self._model.num_dof_vel
@@ -86,9 +87,9 @@ class VBotSection001Env(NpEnv):
         # 初始化缓存
         self._init_buffer()
         
-        # 初始位置生成参数：从配置文件读取
-        self.spawn_center = np.array(cfg.init_state.pos, dtype=np.float32)  # 从配置读取
-        self.spawn_range = 0.1  # 随机生成范围：±0.1m（0.2m×0.2m区域）
+        # 修改渲染间距为0，使地图重叠
+        self._cfg.render_spacing = 0.0
+        
     
         # 导航统计计数器
         self.navigation_stats_step = 0
@@ -258,10 +259,45 @@ class VBotSection001Env(NpEnv):
         heading = np.arctan2(siny_cosp, cosy_cosp)
         return heading
     
+    def _sanitize_dof_pos(self, dof_pos: np.ndarray) -> np.ndarray:
+        """清理非法的dof_pos值
+        
+        Args:
+            dof_pos: [num_envs, num_dofs] 的位置数组
+            
+        Returns:
+            清理后的dof_pos数组
+        """
+        num_envs = dof_pos.shape[0]
+        sanitized = dof_pos.copy()
+        
+        for i in range(num_envs):
+            # 修复base四元数 (DOF 6-9)
+            quat = sanitized[i, self._base_quat_start:self._base_quat_end]
+            
+            # 检查是否包含NaN或Inf
+            if np.isnan(quat).any() or np.isinf(quat).any():
+                # 重置为单位四元数
+                sanitized[i, self._base_quat_start:self._base_quat_end] = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+            else:
+                # 检查是否为零向量
+                quat_norm = np.linalg.norm(quat)
+                if quat_norm < 1e-6:
+                    # 重置为单位四元数
+                    sanitized[i, self._base_quat_start:self._base_quat_end] = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+            
+            # 修复其他维度的NaN
+            sanitized[i] = np.nan_to_num(sanitized[i], nan=0.0, posinf=0.0, neginf=0.0)
+        
+        return sanitized
+    
     def _update_target_marker(self, data: mtx.SceneData, pose_commands: np.ndarray):
         """更新目标位置标记的位置和朝向"""
         num_envs = data.shape[0]
         all_dof_pos = data.dof_pos.copy()
+        
+        # 清理非法的dof_pos值
+        all_dof_pos = self._sanitize_dof_pos(all_dof_pos)
         
         for env_idx in range(num_envs):
             target_x = float(pose_commands[env_idx, 0])
@@ -420,6 +456,13 @@ class VBotSection001Env(NpEnv):
         )
         stop_ready_flag = stop_ready.astype(np.float32)
         
+        # 计算接触力观测（12个关节 + 1个基座接触 = 13维）
+        # 从关节力矩估计接触力（简化：用actuator_ctrls代表接触效应）
+        contact_force = data.actuator_ctrls.copy()  # 12维（12个执行器控制）
+        # 添加基座接触标志（1维）
+        base_contact = np.zeros((data.shape[0], 1), dtype=np.float32)
+        contact_obs = np.concatenate([contact_force, base_contact], axis=-1)  # 13维
+        
         obs = np.concatenate(
             [
                 noisy_linvel,       # 3
@@ -434,10 +477,11 @@ class VBotSection001Env(NpEnv):
                 distance_normalized[:, np.newaxis],  # 1
                 reached_flag[:, np.newaxis],  # 1
                 stop_ready_flag[:, np.newaxis],  # 1
+                contact_obs,        # 13维（12个关节 + 1个基座）
             ],
             axis=-1,
         )
-        assert obs.shape == (data.shape[0], 54)  # 54 + 1 = 55维
+        assert obs.shape == (data.shape[0], 67)  # 54 + 13 = 67维
         
         # 更新目标标记和箭头
         self._update_target_marker(data, pose_commands)
@@ -463,7 +507,28 @@ class VBotSection001Env(NpEnv):
         """
         data = state.data
         
-        # 基座接触地面终止（使用传感器）
+        # 初始化终止条件
+        terminated = np.zeros(self._num_envs, dtype=bool)
+        
+        # 1. base 四元数 NaN/Inf 检测
+        try:
+            root_pos, root_quat, root_vel = self._extract_root_state(data)
+            # 检查四元数是否包含 NaN 或 Inf
+            quat_nan_inf = np.isnan(root_quat).any(axis=1) | np.isinf(root_quat).any(axis=1)
+            terminated = np.logical_or(terminated, quat_nan_inf)
+        except Exception as e:
+            print(f"[Warning] 无法读取base四元数: {e}")
+        
+        # 2. 关节速度绝对值 > 1e4 检测（物理发散前兜底）
+        try:
+            joint_vel = self.get_dof_vel(data)
+            vel_max = np.abs(joint_vel).max(axis=1)
+            vel_extreme = vel_max > 1e4
+            terminated = np.logical_or(terminated, vel_extreme)
+        except Exception as e:
+            print(f"[Warning] 无法读取关节速度: {e}")
+        
+        # 3. 基座接触地面终止（使用传感器）
         try:
             base_contact_value = self._model.get_sensor_value("base_contact", data)
             if base_contact_value.ndim == 0:
@@ -472,43 +537,219 @@ class VBotSection001Env(NpEnv):
                 base_contact = np.full(self._num_envs, base_contact_value.flatten()[0] > 0.01, dtype=bool)
             else:
                 base_contact = (base_contact_value > 0.01).flatten()[:self._num_envs]
+            terminated = np.logical_or(terminated, base_contact)
         except Exception as e:
             print(f"[Warning] 无法读取base_contact传感器: {e}")
-            base_contact = np.zeros(self._num_envs, dtype=bool)
-        
-        terminated = base_contact.copy()
         
         return state.replace(terminated=terminated)
     
+    def _generate_circle_ring_points(self, num_points, radius_min, radius_max, center=(0.0, 0.0)):
+        """
+        在圆环内生成随机点
+        num_points: 需要生成的点数量
+        radius_min: 圆环内半径
+        radius_max: 圆环外半径
+        center: 圆环中心坐标
+        返回: [num_points, 2] 的数组，表示生成的点坐标
+        """
+        # 生成随机角度
+        theta = np.random.uniform(0, 2*np.pi, num_points)
+        
+        # 生成随机半径（在圆环范围内）
+        r = np.random.uniform(radius_min, radius_max, num_points)
+        
+        # 转换为笛卡尔坐标
+        x = center[0] + r * np.cos(theta)
+        y = center[1] + r * np.sin(theta)
+        
+        return np.column_stack([x, y])
+
     def _compute_reward(self, data: mtx.SceneData, info: dict, velocity_commands: np.ndarray) -> np.ndarray:
         """
-        导航任务奖励计算
+        速度跟踪奖励机制
+        velocity_commands: [num_envs, 3] - (vx, vy, vyaw)
         """
-        cfg = self._cfg
+        # 计算终止条件惩罚
+        termination_penalty = np.zeros(self._num_envs, dtype=np.float32)
         
-        # 计算总奖励
-        reward = np.array([0])
+        # 检查DOF速度是否超限
+        dof_vel = self.get_dof_vel(data)
+        vel_max = np.abs(dof_vel).max(axis=1)
+        vel_overflow = vel_max > self._cfg.max_dof_vel
+        vel_extreme = (np.isnan(dof_vel).any(axis=1)) | (np.isinf(dof_vel).any(axis=1)) | (vel_max > 1e6)
+        termination_penalty = np.where(vel_overflow | vel_extreme, -20.0, termination_penalty)
         
+        # 机器人基座接触地面惩罚
+        cquerys = self._model.get_contact_query(data)
+        termination_check = cquerys.is_colliding(self.termination_contact)
+        termination_check = termination_check.reshape((self._num_envs, self.num_termination_check))
+        base_contact = termination_check.any(axis=1)
+        termination_penalty = np.where(base_contact, -20.0, termination_penalty)
+        
+        # 侧翻惩罚
+        pose = self._body.get_pose(data)
+        root_quat = pose[:, 3:7]
+        proj_g = self._compute_projected_gravity(root_quat)
+        gxy = np.linalg.norm(proj_g[:, :2], axis=1)
+        gz = proj_g[:, 2]
+        tilt_angle = np.arctan2(gxy, np.abs(gz))
+        side_flip_mask = tilt_angle > np.deg2rad(75)
+        termination_penalty = np.where(side_flip_mask, -20.0, termination_penalty)
+        
+        # 线速度跟踪奖励
+        base_lin_vel = self._model.get_sensor_value(self._cfg.sensor.base_linvel, data)
+        lin_vel_error = np.sum(np.square(velocity_commands[:, :2] - base_lin_vel[:, :2]), axis=1)
+        tracking_lin_vel = np.exp(-lin_vel_error / 0.25)  # tracking_sigma = 0.25
+        
+        # 角速度跟踪奖励 / 朝向偏差惩罚（混合策略）
+        gyro = self._model.get_sensor_value(self._cfg.sensor.base_gyro, data)
+        ang_vel_error = np.square(velocity_commands[:, 2] - gyro[:, 2])
+        tracking_ang_vel = np.exp(-ang_vel_error / 0.25)
+        
+        # 获取机器人位置和朝向用于到达判定
+        robot_position = pose[:, :2]
+        robot_heading = self._get_heading_from_quat(root_quat)
+        target_position = info["pose_commands"][:, :2]
+        target_heading = info["pose_commands"][:, 2]
+        position_error = target_position - robot_position
+        distance_to_target = np.linalg.norm(position_error, axis=1)
+        heading_diff = target_heading - robot_heading
+        heading_diff = np.where(heading_diff > np.pi, heading_diff - 2*np.pi, heading_diff)
+        heading_diff = np.where(heading_diff < -np.pi, heading_diff + 2*np.pi, heading_diff)
+        
+        position_threshold = 0.3
+        reached_position = distance_to_target < position_threshold
+        
+        heading_threshold = np.deg2rad(15)
+        reached_heading = np.abs(heading_diff) < heading_threshold
+        reached_all = np.logical_and(reached_position, reached_heading)
+        
+        # 首次到达位置的一次性奖励
+        info["ever_reached"] = info.get("ever_reached", np.zeros(self._num_envs, dtype=bool))
+        first_time_reach = np.logical_and(reached_all, ~info["ever_reached"])
+        info["ever_reached"] = np.logical_or(info["ever_reached"], reached_all)
+        arrival_bonus = np.where(first_time_reach, 10.0, 0.0)
+        
+        # 距离接近奖励：激励靠近目标
+        # 使用历史最近距离来计算进步
+        if "min_distance" not in info:
+            info["min_distance"] = distance_to_target.copy()
+        distance_improvement = info["min_distance"] - distance_to_target
+        info["min_distance"] = np.minimum(info["min_distance"], distance_to_target)
+        approach_reward = np.clip(distance_improvement * 4.0, -1.0, 1.0)  # 每接近1米奖励5分
+        
+        # 姿态稳定性奖励（惩罚偏离正常站立姿态）
+        # 正常站立时 projected_gravity ≈ [0, 0, -1]
+        projected_gravity = self._compute_projected_gravity(root_quat)
+        orientation_penalty = np.square(projected_gravity[:, 0]) + np.square(projected_gravity[:, 1]) + np.square(projected_gravity[:, 2] + 1.0)
+
+        # 到达与停止判定（奖励加成）
+        speed_xy = np.linalg.norm(base_lin_vel[:, :2], axis=1)
+        zero_ang_mask = np.abs(gyro[:, 2]) < 0.05  # 放宽到0.05 rad/s ≈ 2.86°/s
+        zero_ang_bonus = np.where(np.logical_and(reached_all, zero_ang_mask), 6.0, 0.0)
+        
+        # 添加数值溢出保护
+        speed_xy = np.clip(speed_xy, 0, 10.0)  # 限制最大速度
+        gyro_z = np.clip(np.abs(gyro[:, 2]), 0, 10.0)  # 限制最大角速度
+        
+        # 计算停止奖励
+        stop_base = 2 * (0.8 * np.exp(- (speed_xy / 0.2)**2) + 1.2 * np.exp(- (gyro_z / 0.1)**4))
+        stop_bonus = np.where(reached_all, stop_base + zero_ang_bonus, 0.0)
+        
+        # Z轴线速度惩罚
+        lin_vel_z_penalty = np.square(base_lin_vel[:, 2])
+        
+        # XY轴角速度惩罚
+        ang_vel_xy_penalty = np.sum(np.square(gyro[:, :2]), axis=1)
+        
+        # 力矩惩罚
+        torque_penalty = np.sum(np.square(data.actuator_ctrls), axis=1)
+        
+        # 关节速度惩罚
+        joint_vel = self.get_dof_vel(data)
+        dof_vel_penalty = np.sum(np.square(joint_vel), axis=1)
+        
+        # 动作变化惩罚
+        action_diff = info["current_actions"] - info["last_actions"]
+        action_rate_penalty = np.sum(np.square(action_diff), axis=1)
+        
+        # 添加边界检查惩罚
+        # 计算机器人到边界的距离
+        boundary_radius = 12.5  # 边界半径，从碰撞模型文件 0131_C_section01.xml 中获取
+        distance_to_boundary = boundary_radius - np.linalg.norm(robot_position, axis=1)
+        # 当机器人接近边界时给予惩罚
+        boundary_penalty = np.zeros(self._num_envs, dtype=np.float32)
+        boundary_threshold = 2.0  # 边界阈值，当距离边界小于此值时开始惩罚
+        boundary_penalty = np.where(distance_to_boundary < boundary_threshold, -20.0 * (boundary_threshold - distance_to_boundary), 0.0)
+        
+        # 综合奖励
+        # 到达后：停止所有正向奖励，只保留停止奖励和惩罚项
+        reward = np.where(
+            reached_all,
+            # 到达后：只有停止奖励和惩罚
+            (
+                2.0 * stop_bonus  # 增强停止奖励
+                + 2.0 * arrival_bonus  # 增强到达奖励
+                - 2.0 * lin_vel_z_penalty
+                - 0.05 * ang_vel_xy_penalty
+                - 0.0 * orientation_penalty
+                - 0.00001 * torque_penalty
+                - 0.0 * dof_vel_penalty
+                - 0.001 * action_rate_penalty
+                + boundary_penalty  # 边界惩罚
+                + termination_penalty  # 终止条件惩罚
+            ),
+            # 未到达：正常奖励
+            (
+                1.5 * tracking_lin_vel    # 提高线速度跟踪权重
+                + 0.3 * tracking_ang_vel  # 降低角速度权重
+                + 2.0 * approach_reward   # 增强接近奖励
+                - 2.0 * lin_vel_z_penalty
+                - 0.05 * ang_vel_xy_penalty
+                - 0.0 * orientation_penalty
+                - 0.00001 * torque_penalty
+                - 0.0 * dof_vel_penalty
+                - 0.001 * action_rate_penalty
+                + boundary_penalty  # 边界惩罚
+                + termination_penalty  # 终止条件惩罚
+            )
+        )
+        
+        # 调试打印：到达一次性奖励、停止奖励、零角奖励、角速度
+        try:
+            arrival_count = int((arrival_bonus > 0).sum())
+            stop_count = int((stop_bonus > 0).sum())
+            zero_ang_count = int((zero_ang_bonus > 0).sum())
+            gyro_z_mean = float(np.mean(abs(gyro[:, 2])))
+            total_envs = self._num_envs
+            
+            # 额外统计：环境状态分布
+            reached_pos_count = int(reached_position.sum())
+            reached_head_count = int(reached_heading.sum())
+            dist_mean = float(np.mean(distance_to_target))
+            heading_err_mean = float(np.rad2deg(np.mean(np.abs(heading_diff))))
+            
+            # print(f"[reward_debug] arrival={arrival_count}/{total_envs} stop={stop_count}/{total_envs} zero_ang={zero_ang_count}/{total_envs}")
+            # print(f"[position] reached_pos={reached_pos_count}/{total_envs} dist_mean={dist_mean:.2f}m")
+            # print(f"[heading] reached_head={reached_head_count}/{total_envs} heading_err_mean={heading_err_mean:.1f}°")
+            # print(f"[velocity] gyro_z_mean={gyro_z_mean:.4f} rad/s")
+        except Exception:
+            pass
         return reward
 
     def reset(self, data: mtx.SceneData, done: np.ndarray = None) -> tuple[np.ndarray, dict]:
-        cfg: VBotSection01EnvCfg = self._cfg
+        cfg: VBotSection001EnvCfg = self._cfg
         num_envs = data.shape[0]
         
-        # 在高台中央小范围内随机生成位置
-        # X, Y: 在spawn_center周围 ±spawn_range 范围内随机
-        random_xy = np.random.uniform(
-            low=-self.spawn_range,
-            high=self.spawn_range,
-            size=(num_envs, 2)
+        # 使用圆环出生位置（最外围的两个圆环内）
+        robot_init_xy = self._generate_circle_ring_points(
+            num_envs,
+            radius_min=cfg.init_state.spawn_ring_radius_min,  # 内白线半径
+            radius_max=cfg.init_state.spawn_ring_radius_max,  # 外白线半径
+            center=(0.0, 0.0)  # 圆环中心
         )
-        robot_init_xy = self.spawn_center[:2] + random_xy  # [num_envs, 2]
-        terrain_heights = np.full(num_envs, self.spawn_center[2], dtype=np.float32)  # 使用配置的高度
-        
-        
-        # 组合XYZ坐标
-        robot_init_pos = robot_init_xy  # [num_envs, 2]
-        robot_init_xyz = np.column_stack([robot_init_xy, terrain_heights])  # [num_envs, 3]
+        robot_init_xyz = np.column_stack([robot_init_xy, np.full(num_envs, 0.5)])
+        robot_init_pos = robot_init_xyz[:, :2]  # [num_envs, 2]
         
         dof_pos = np.tile(self._init_dof_pos, (num_envs, 1))
         dof_vel = np.tile(self._init_dof_vel, (num_envs, 1))
@@ -516,29 +757,21 @@ class VBotSection001Env(NpEnv):
         # 设置 base 的 XYZ位置（DOF 3-5）
         dof_pos[:, 3:6] = robot_init_xyz  # [x, y, z] 随机生成的位置
         
-        target_offset = np.random.uniform(
-            low=cfg.commands.pose_command_range[:2],
-            high=cfg.commands.pose_command_range[3:5],
-            size=(num_envs, 2)
-        )
-        target_positions = robot_init_pos + target_offset
+        # 目标位置：中心点
+        target_positions = np.zeros((num_envs, 2), dtype=np.float32)
         
         target_headings = np.random.uniform(
-            low=cfg.commands.pose_command_range[2],
-            high=cfg.commands.pose_command_range[5],
+            low=-np.pi,
+            high=np.pi,
             size=(num_envs, 1)
         )
         
         pose_commands = np.concatenate([target_positions, target_headings], axis=1)
         
-        # 归一化base的四元数（DOF 6-9）
+        # 设置base的四元数为单位四元数（DOF 6-9）
         for env_idx in range(num_envs):
-            quat = dof_pos[env_idx, self._base_quat_start:self._base_quat_end]
-            quat_norm = np.linalg.norm(quat)
-            if quat_norm > 1e-6:
-                dof_pos[env_idx, self._base_quat_start:self._base_quat_end] = quat / quat_norm
-            else:
-                dof_pos[env_idx, self._base_quat_start:self._base_quat_end] = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+            # 直接设置为单位四元数，避免归一化问题
+            dof_pos[env_idx, self._base_quat_start:self._base_quat_end] = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
             
             # 归一化箭头的四元数（如果箭头body存在）
             if self._robot_arrow_body is not None:
@@ -642,6 +875,11 @@ class VBotSection001Env(NpEnv):
         )
         stop_ready_flag = stop_ready.astype(np.float32)
 
+        # 计算接触力观测（12个关节 + 1个基座接触 = 13维）
+        contact_force = np.zeros((num_envs, 12), dtype=np.float32)  # 12维
+        base_contact = np.zeros((num_envs, 1), dtype=np.float32)  # 1维
+        contact_obs = np.concatenate([contact_force, base_contact], axis=-1)  # 13维
+
         obs = np.concatenate(
             [
                 noisy_linvel,       # 3
@@ -656,11 +894,12 @@ class VBotSection001Env(NpEnv):
                 distance_normalized[:, np.newaxis],  # 1
                 reached_flag[:, np.newaxis],  # 1
                 stop_ready_flag[:, np.newaxis],  # 1
+                contact_obs,        # 13维（12个关节 + 1个基座）
             ],
             axis=-1,
         )
         print(f"obs.shape:{obs.shape}")
-        assert obs.shape == (num_envs, 54)  # 54 + 1 = 55维
+        assert obs.shape == (num_envs, 67)  # 54 + 13 = 67维
         
         info = {
             "pose_commands": pose_commands,
@@ -676,4 +915,3 @@ class VBotSection001Env(NpEnv):
         }
         
         return obs, info
-    

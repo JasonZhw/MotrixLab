@@ -67,7 +67,7 @@ class VBotSection012Env(NpEnv):
         # 动作和观测空间
         self._action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(12,), dtype=np.float32)
         # 观测空间：67维（55 + 12维接触力）
-        self._observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(54,), dtype=np.float32)
+        self._observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(67,), dtype=np.float32)
         
         self._num_dof_pos = self._model.num_dof_pos
         self._num_dof_vel = self._model.num_dof_vel
@@ -420,6 +420,13 @@ class VBotSection012Env(NpEnv):
         )
         stop_ready_flag = stop_ready.astype(np.float32)
         
+        # 计算接触力观测（12个关节 + 1个基座接触 = 13维）
+        # 从关节力矩估计接触力（简化：用actuator_ctrls代表接触效应）
+        contact_force = data.actuator_ctrls.copy()  # 12维（12个执行器控制）
+        # 添加基座接触标志（1维）
+        base_contact = np.zeros((data.shape[0], 1), dtype=np.float32)
+        contact_obs = np.concatenate([contact_force, base_contact], axis=-1)  # 13维
+        
         obs = np.concatenate(
             [
                 noisy_linvel,       # 3
@@ -434,10 +441,11 @@ class VBotSection012Env(NpEnv):
                 distance_normalized[:, np.newaxis],  # 1
                 reached_flag[:, np.newaxis],  # 1
                 stop_ready_flag[:, np.newaxis],  # 1
+                contact_obs,        # 13维（12个关节 + 1个基座）
             ],
             axis=-1,
         )
-        assert obs.shape == (data.shape[0], 54)  # 54 + 1 = 55维
+        assert obs.shape == (data.shape[0], 67)  # 54 + 13 = 67维
         
         # 更新目标标记和箭头
         self._update_target_marker(data, pose_commands)
@@ -642,6 +650,11 @@ class VBotSection012Env(NpEnv):
         )
         stop_ready_flag = stop_ready.astype(np.float32)
 
+        # 计算接触力观测（12个关节 + 1个基座接触 = 13维）
+        contact_force = np.zeros((num_envs, 12), dtype=np.float32)  # 12维
+        base_contact = np.zeros((num_envs, 1), dtype=np.float32)  # 1维
+        contact_obs = np.concatenate([contact_force, base_contact], axis=-1)  # 13维
+
         obs = np.concatenate(
             [
                 noisy_linvel,       # 3
@@ -656,11 +669,12 @@ class VBotSection012Env(NpEnv):
                 distance_normalized[:, np.newaxis],  # 1
                 reached_flag[:, np.newaxis],  # 1
                 stop_ready_flag[:, np.newaxis],  # 1
+                contact_obs,        # 13维（12个关节 + 1个基座）
             ],
             axis=-1,
         )
         print(f"obs.shape:{obs.shape}")
-        assert obs.shape == (num_envs, 54)  # 54 + 1 = 55维
+        assert obs.shape == (num_envs, 67)  # 54 + 13 = 67维
         
         info = {
             "pose_commands": pose_commands,
