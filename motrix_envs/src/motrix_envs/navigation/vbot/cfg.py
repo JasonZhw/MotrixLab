@@ -210,9 +210,9 @@ class VBotLongCourseEnvCfg(VBotStairsEnvCfg):
     commands: Commands = field(default_factory=Commands)
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
-@registry.envcfg("vbot_navigation_section001")
+@registry.envcfg("MotrixArena_S1_section001_56")
 @dataclass
-class VBotSection001EnvCfg(VBotStairsEnvCfg):
+class VBotSection001EnvCfg(VBotEnvCfg):
     """VBot Section001圆形竞技场导航配置 - 外环出生，中心目标"""
     model_file: str = os.path.dirname(__file__) + "/xmls/scene_section001.xml"
     max_episode_seconds: float = 40.0
@@ -252,7 +252,7 @@ class VBotSection001EnvCfg(VBotStairsEnvCfg):
         # 目标点固定在场地中心 (0, 0)，yaw随机（朝向不限）
         # 格式: [x_min, y_min, yaw_min, x_max, y_max, yaw_max]
         # x/y 相同则为固定目标；这里目标是绝对坐标(0,0)，在reset中直接赋值
-        pose_command_range = [0.0, 0.0, -3.14159, 0.0, 0.0, 3.14159]
+        pose_command_range = [0.0, 0.0, 0, 0.0, 0.0, 0]
         
         # 目标中心位置（蓝色光环中心）
         target_center = [0.0, 0.0, 0.5]
@@ -267,7 +267,7 @@ class VBotSection001EnvCfg(VBotStairsEnvCfg):
     commands: Commands = field(default_factory=Commands)
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
-@registry.envcfg("vbot_navigation_section01")
+@registry.envcfg("MotrixArena_S1_section01_56")
 @dataclass
 class VBotSection01EnvCfg(VBotStairsEnvCfg):
     """VBot Section01单独训练配置 - 高台楼梯地形"""
@@ -310,7 +310,7 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
     commands: Commands = field(default_factory=Commands)
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
-@registry.envcfg("vbot_navigation_section011")
+@registry.envcfg("MotrixArena_S1_section011_56")
 @dataclass
 class VBotSection011EnvCfg(VBotStairsEnvCfg):
     """VBot Section01单独训练配置 - 高台楼梯地形"""
@@ -354,7 +354,7 @@ class VBotSection011EnvCfg(VBotStairsEnvCfg):
     commands: Commands = field(default_factory=Commands)
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
-@registry.envcfg("vbot_navigation_section012")
+@registry.envcfg("MotrixArena_S1_section012_56")
 @dataclass
 class VBotSection012EnvCfg(VBotStairsEnvCfg):
     """VBot Section01单独训练配置 - 高台楼梯地形"""
@@ -398,7 +398,7 @@ class VBotSection012EnvCfg(VBotStairsEnvCfg):
     commands: Commands = field(default_factory=Commands)
     control_config: ControlConfig = field(default_factory=ControlConfig)
 
-@registry.envcfg("vbot_navigation_section013")
+@registry.envcfg("MotrixArena_S1_section013_56")
 @dataclass
 class VBotSection013EnvCfg(VBotStairsEnvCfg):
     """VBot Section01单独训练配置 - 高台楼梯地形"""

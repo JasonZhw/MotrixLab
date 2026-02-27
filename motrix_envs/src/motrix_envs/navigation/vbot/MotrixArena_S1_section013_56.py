@@ -21,7 +21,7 @@ from motrix_envs import registry
 from motrix_envs.np.env import NpEnv, NpEnvState
 from motrix_envs.math.quaternion import Quaternion
 
-from .cfg import VBotSection011EnvCfg
+from .cfg import VBotSection013EnvCfg
 
 
 def generate_repeating_array(num_period, num_reset, period_counter):
@@ -37,15 +37,15 @@ def generate_repeating_array(num_period, num_reset, period_counter):
     return np.array(idx)
 
 
-@registry.env("vbot_navigation_section011", "np")
-class VBotSection011Env(NpEnv):
+@registry.env("MotrixArena_S1_section013_56", "np")
+class VBotSection013Env(NpEnv):
     """
-    VBot在Section011地形上的导航任务
-    继承自NpEnv，使用VBotSection011EnvCfg配置
+    VBot在Section013地形上的导航任务
+    继承自NpEnv，使用VBotSection013EnvCfg配置
     """
-    _cfg: VBotSection011EnvCfg
+    _cfg: VBotSection013EnvCfg
     
-    def __init__(self, cfg: VBotSection011EnvCfg, num_envs: int = 1):
+    def __init__(self, cfg: VBotSection013EnvCfg, num_envs: int = 1):
         # 调用父类NpEnv初始化
         super().__init__(cfg, num_envs=num_envs)
         

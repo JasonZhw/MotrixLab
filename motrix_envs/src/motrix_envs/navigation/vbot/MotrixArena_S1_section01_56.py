@@ -37,7 +37,7 @@ def generate_repeating_array(num_period, num_reset, period_counter):
     return np.array(idx)
 
 
-@registry.env("vbot_navigation_section01", "np")
+@registry.env("MotrixArena_S1_section01_56", "np")
 class VBotSection01Env(NpEnv):
     """
     VBot在Section01地形上的导航任务

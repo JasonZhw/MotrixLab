@@ -24,20 +24,7 @@ from motrix_envs.math.quaternion import Quaternion
 from .cfg import VBotSection001EnvCfg
 
 
-def generate_repeating_array(num_period, num_reset, period_counter):
-    """
-    生成重复数组，用于在固定位置中循环选择
-    num_period: 位置总数
-    num_reset: 需要重置的环境数
-    period_counter: 当前计数器
-    """
-    idx = []
-    for i in range(num_reset):
-        idx.append((period_counter + i) % num_period)
-    return np.array(idx)
-
-
-@registry.env("vbot_navigation_section001", "np")
+@registry.env("MotrixArena_S1_section001_56", "np")
 class VBotSection001Env(NpEnv):
     """
     VBot在Section001地形上的导航任务
@@ -67,7 +54,7 @@ class VBotSection001Env(NpEnv):
         
         # 动作和观测空间
         self._action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(12,), dtype=np.float32)
-        # 观测空间：67维（55 + 12维接触力）
+        # 观测空间：55维
         self._observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(67,), dtype=np.float32)
         
         self._num_dof_pos = self._model.num_dof_pos
@@ -90,7 +77,6 @@ class VBotSection001Env(NpEnv):
         # 修改渲染间距为0，使地图重叠
         self._cfg.render_spacing = 0.0
         
-    
         # 导航统计计数器
         self.navigation_stats_step = 0
     
@@ -182,6 +168,7 @@ class VBotSection001Env(NpEnv):
     
     def get_dof_pos(self, data: mtx.SceneData):
         return self._body.get_joint_dof_pos(data)
+        root_linvel = self._model.get_sensor_value(self._cfg.sensor.base_linvel, data)
     
     def get_dof_vel(self, data: mtx.SceneData):
         return self._body.get_joint_dof_vel(data)
