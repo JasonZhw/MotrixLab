@@ -215,8 +215,8 @@ class VBotLongCourseEnvCfg(VBotStairsEnvCfg):
 class VBotSection001EnvCfg(VBotEnvCfg):
     """VBot Section001圆形竞技场导航配置 - 外环出生，中心目标"""
     model_file: str = os.path.dirname(__file__) + "/xmls/scene_section001.xml"
-    max_episode_seconds: float = 40.0
-    max_episode_steps: int = 4000
+    max_episode_seconds: float = 40.0  # 缩短到0.0秒，配合更多並行环境加速训练
+    max_episode_steps: int = 4000  # 缩短到4000步
     render_spacing: float = 0.0    # 修改渲染间距为0，使地图重叠
     
     @dataclass
@@ -229,8 +229,6 @@ class VBotSection001EnvCfg(VBotEnvCfg):
         spawn_ring_radius_min: float = 10.5 # 内白线半径 [m]
         spawn_ring_radius_max: float = 11.5  # 外白线半径 [m]
 
-        # 保持矩形随机化字段兼容性（实际不再使用，spawn改为圆形）
-        pos_randomization_range = [-4.5, -4.5, 4.5, 4.5]
 
         default_joint_angles = {
             "FR_hip_joint": -0.0,
@@ -266,6 +264,7 @@ class VBotSection001EnvCfg(VBotEnvCfg):
     init_state: InitState = field(default_factory=InitState)
     commands: Commands = field(default_factory=Commands)
     control_config: ControlConfig = field(default_factory=ControlConfig)
+
 
 @registry.envcfg("MotrixArena_S1_section01_56")
 @dataclass
