@@ -425,3 +425,92 @@ class navigation:
 
         policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
         value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+
+    @rlcfg("MotrixArena_S1_section011_56")
+    @dataclass
+    class VBotNavigationSection011PPOConfig(PPOCfg):
+        """
+        Section011 - 上坡带笑脸场景 (基础难度)
+        从START随机生成 → 收集笑脸/红包 → 到达2026平台做庆祝
+        策略: 全力训练，最大学习率用于从零开始学习
+        """
+        seed: int = 42
+        num_envs: int = 8192              # 最大并行度，加速初期学习
+        play_num_envs: int = 1
+        max_env_steps: int = 1024 * 60_000  # ~7500个训练迭代
+        check_point_interval: int = 500
+
+        learning_rate: float = 5e-4       # 最高学习率，从零开始
+        rollouts: int = 32                # 保持batch大小: 8192 * 32 = 262K samples/iter
+        learning_epochs: int = 5
+        mini_batches: int = 64
+        discount_factor: float = 0.99
+        lambda_param: float = 0.95
+        grad_norm_clip: float = 1.0
+
+        ratio_clip: float = 0.2
+        value_clip: float = 0.2
+        clip_predicted_values: bool = True
+
+        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+
+    @rlcfg("MotrixArena_S1_section012_56")
+    @dataclass
+    class VBotNavigationSection012PPOConfig(PPOCfg):
+        """
+        Section012 - 楼梯和吊桥场景 (中等难度)
+        从2026随机生成 → 波浪+楼梯+吊桥/河床 → 收集红包 → 丙午大吉庆祝
+        策略: 迁移学习，降低学习率2.5倍用于细调
+        加载section011的checkpoint继续训练
+        """
+        seed: int = 42
+        num_envs: int = 8192
+        play_num_envs: int = 1
+        max_env_steps: int = 1024 * 60_000  # 同等训练预算
+        check_point_interval: int = 500
+
+        learning_rate: float = 2e-4       # 2.5倍降低，细调已学特征
+        rollouts: int = 32
+        learning_epochs: int = 5
+        mini_batches: int = 64
+        discount_factor: float = 0.99
+        lambda_param: float = 0.95
+        grad_norm_clip: float = 1.0
+
+        ratio_clip: float = 0.2
+        value_clip: float = 0.2
+        clip_predicted_values: bool = True
+
+        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+
+    @rlcfg("MotrixArena_S1_section013_56")
+    @dataclass
+    class VBotNavigationSection013PPOConfig(PPOCfg):
+        """
+        Section013 - 复杂地形越障场景 (高等难度)
+        从丙午大吉随机生成 → 滚球碰撞恢复 → 不规则地形 → 中国结平台庆祝
+        策略: 迁移学习，降低学习率5倍用于精调
+        加载section012的checkpoint继续训练
+        """
+        seed: int = 42
+        num_envs: int = 8192
+        play_num_envs: int = 1
+        max_env_steps: int = 1024 * 60_000  # 同等训练预算
+        check_point_interval: int = 500
+
+        learning_rate: float = 1e-4       # 5倍降低，精调碰撞恢复策略
+        rollouts: int = 32
+        learning_epochs: int = 5
+        mini_batches: int = 64
+        discount_factor: float = 0.99
+        lambda_param: float = 0.95
+        grad_norm_clip: float = 1.0
+
+        ratio_clip: float = 0.2
+        value_clip: float = 0.2
+        clip_predicted_values: bool = True
+
+        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)

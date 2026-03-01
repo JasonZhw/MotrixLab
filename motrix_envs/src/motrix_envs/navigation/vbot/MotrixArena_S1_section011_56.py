@@ -467,35 +467,234 @@ class VBotSection011Env(NpEnv):
     
     def _compute_terminated(self, state: NpEnvState) -> NpEnvState:
         """
-        重写终止条件，与locomotion stairs完全一致
+        ============================================================
+        Section011 终止条件
+        ============================================================
+        
+        扣分规则（触发任一条件则清零）：
+        1. 摔倒: 倾斜角 > 60°
+        2. 出界: 超出指定边界 (X>±6m 或 Y>12m)
+        3. 物理发散: DOF速度异常
         """
         data = state.data
         
-        # 基座接触地面终止（使用传感器）
-        try:
-            base_contact_value = self._model.get_sensor_value("base_contact", data)
-            if base_contact_value.ndim == 0:
-                base_contact = np.array([base_contact_value > 0.01], dtype=bool)
-            elif base_contact_value.shape[0] != self._num_envs:
-                base_contact = np.full(self._num_envs, base_contact_value.flatten()[0] > 0.01, dtype=bool)
-            else:
-                base_contact = (base_contact_value > 0.01).flatten()[:self._num_envs]
-        except Exception as e:
-            print(f"[Warning] 无法读取base_contact传感器: {e}")
-            base_contact = np.zeros(self._num_envs, dtype=bool)
+        # 获取机器人状态
+        pose = self._body.get_pose(data)
+        root_pos = pose[:, :3]
+        root_quat = pose[:, 3:7]
+        projected_gravity = self._compute_projected_gravity(root_quat)
+        dof_vel = self.get_dof_vel(data)
         
-        terminated = base_contact.copy()
+        # 初始化终止条件
+        terminated = np.zeros(self._num_envs, dtype=bool)
+        
+        # 1. 摔倒条件 (倾斜 > 60°)
+        gxy = np.linalg.norm(projected_gravity[:, :2], axis=1)
+        gz = projected_gravity[:, 2]
+        tilt_angle = np.arctan2(gxy, np.abs(gz))
+        fallen = tilt_angle > np.deg2rad(60)
+        terminated |= fallen
+        
+        # 2. 出界条件 (X>±6m 或 Y>12m)
+        out_of_bounds = (
+            (np.abs(root_pos[:, 0]) > 6.0) |
+            (root_pos[:, 1] > 12.0)
+        )
+        terminated |= out_of_bounds
+        
+        # 3. 物理发散 (DOF速度超限)
+        vel_max = np.abs(dof_vel).max(axis=1)
+        vel_extreme = (vel_max > 1e6) | np.isnan(dof_vel).any(axis=1) | np.isinf(dof_vel).any(axis=1)
+        terminated |= vel_extreme
         
         return state.replace(terminated=terminated)
     
     def _compute_reward(self, data: mtx.SceneData, info: dict, velocity_commands: np.ndarray) -> np.ndarray:
         """
-        导航任务奖励计算
+        ============================================================
+        Section011 奖励系统 - 笑脸收集 + 红包收集 + 到达终点庆祝
+        ============================================================
+        
+        总得分系统：
+        - 基础分20分：完成从START到2026平台
+        - 笑脸加分12分：3个笑脸×4分 (y=4-6m区域)
+        - 红包加分6分：3个红包×2分 (y=4-5m区域)
+        - 庆祝加分2分：在2026平台做庆祝动作
+        
+        奖励结构：
+        1. 接近奖励：鼓励向目标移动
+        2. 笑脸触发奖励：进入笑脸区域+4分(仅首次)
+        3. 红包触发奖励：到达红包位置+2分(仅首次)
+        4. 到达奖励：到达2026平台
+        5. 庆祝奖励：在终点做出庆祝动作
         """
+        num_envs = self._num_envs
         cfg = self._cfg
         
-        # 计算总奖励
-        reward = np.array([0])
+        # 获取机器人状态
+        pose = self._body.get_pose(data)
+        root_pos = pose[:, :3]  # [num_envs, 3]
+        root_quat = pose[:, 3:7]
+        root_linvel = self._model.get_sensor_value(cfg.sensor.base_linvel, data)
+        gyro = self._model.get_sensor_value(cfg.sensor.base_gyro, data)
+        projected_gravity = self._compute_projected_gravity(root_quat)
+        
+        # ===== 初始化奖励追踪信息 =====
+        if "laughing_faces_visited" not in info:
+            # 笑脸位置（根据LANDMARK_COORDINATES推断）
+            # Section011: y=4-6m范围，3个笑脸均匀分布
+            info["laughing_faces_visited"] = np.zeros((num_envs, 3), dtype=bool)
+            info["laughing_face_positions"] = np.array([
+                [-2.0, 4.8, 0.8],   # 左笑脸
+                [0.0, 5.5, 0.8],    # 中笑脸
+                [2.0, 4.8, 0.8],    # 右笑脸
+            ], dtype=np.float32)
+        
+        if "red_packages_visited" not in info:
+            # 红包位置（y=4-5m，悬浮在GO字样上方）
+            info["red_packages_visited"] = np.zeros((num_envs, 3), dtype=bool)
+            info["red_package_positions"] = np.array([
+                [-1.5, 4.2, 1.5],   # 左红包
+                [0.0, 4.5, 1.8],    # 中红包
+                [1.5, 4.3, 1.5],    # 右红包
+            ], dtype=np.float32)
+        
+        if "reached_platform" not in info:
+            info["reached_platform"] = np.zeros(num_envs, dtype=bool)
+        
+        if "min_distance_to_goal" not in info:
+            info["min_distance_to_goal"] = np.full(num_envs, 100.0, dtype=np.float32)
+        
+        # ===== 基本导航信息 =====
+        pose_commands = info["pose_commands"]
+        robot_xy = root_pos[:, :2]
+        goal_xy = pose_commands[:, :2]
+        
+        distance_to_goal = np.linalg.norm(robot_xy - goal_xy, axis=1)
+        
+        # 更新最小距离（用于接近奖励）
+        distance_improvement = info["min_distance_to_goal"] - distance_to_goal
+        info["min_distance_to_goal"] = np.minimum(info["min_distance_to_goal"], distance_to_goal)
+        
+        # ===== 1. 接近奖励 =====
+        approach_reward = np.clip(distance_improvement * 2.0, -1.0, 1.0)
+        
+        # ===== 2. 笑脸触发奖励 =====
+        laughing_face_reward = np.zeros(num_envs, dtype=np.float32)
+        trigger_radius = 1.0  # 1米触发范围
+        
+        for face_idx in range(3):
+            face_pos = info["laughing_face_positions"][face_idx]
+            distances_to_face = np.linalg.norm(root_pos - face_pos, axis=1)
+            newly_visited = (distances_to_face < trigger_radius) & (~info["laughing_faces_visited"][:, face_idx])
+            
+            laughing_face_reward += np.where(newly_visited, 4.0, 0.0)
+            info["laughing_faces_visited"][:, face_idx] |= (distances_to_face < trigger_radius)
+        
+        # ===== 3. 红包触发奖励 =====
+        red_package_reward = np.zeros(num_envs, dtype=np.float32)
+        package_trigger_radius = 0.8  # 0.8米触发范围
+        
+        for pkg_idx in range(3):
+            pkg_pos = info["red_package_positions"][pkg_idx]
+            distances_to_pkg = np.linalg.norm(root_pos - pkg_pos, axis=1)
+            newly_visited = (distances_to_pkg < package_trigger_radius) & (~info["red_packages_visited"][:, pkg_idx])
+            
+            red_package_reward += np.where(newly_visited, 2.0, 0.0)
+            info["red_packages_visited"][:, pkg_idx] |= (distances_to_pkg < package_trigger_radius)
+        
+        # ===== 4. 到达奖励 =====
+        reached_threshold = 0.5
+        reached = distance_to_goal < reached_threshold
+        
+        if "ever_reached" not in info:
+            info["ever_reached"] = np.zeros(num_envs, dtype=bool)
+        
+        first_time_reach = reached & (~info["ever_reached"])
+        arrival_reward = np.where(first_time_reach, 5.0, 0.0)
+        info["ever_reached"] |= reached
+        
+        # ===== 5. 停止奖励（到达后鼓励停止）=====
+        speed = np.linalg.norm(root_linvel[:, :2], axis=1)
+        stop_bonus = np.where(
+            reached,
+            2.0 * (0.8 * np.exp(-(speed / 0.2)**2) + 0.2 * np.exp(-(np.abs(gyro[:, 2]) / 0.1)**2)),
+            0.0
+        )
+        
+        # ===== 5. 庆祝动作奖励 (原地跳跃) =====
+        # 庆祝动作定义：在终点(y>7.5m, v_xy<0.3m/s)做出原地跳跃(垂直运动3次)
+        # 检测机制：Z轴速度从负到正的穿过零点计数（表示上升阶段开始）
+        
+        if "celebration_z_velocity_prev" not in info:
+            info["celebration_z_velocity_prev"] = np.zeros(num_envs, dtype=np.float32)
+        if "jump_count" not in info:
+            info["jump_count"] = np.zeros(num_envs, dtype=np.int32)
+        if "celebration_bonus_given" not in info:
+            info["celebration_bonus_given"] = np.zeros(num_envs, dtype=bool)
+        
+        # 判定是否在庆祝点
+        at_celebration_point = (root_pos[:, 1] > 7.5) & (np.linalg.norm(root_linvel[:, :2], axis=1) < 0.3)
+        
+        # 检测跳跃：Z速度从负转正（穿过零点向上）
+        z_vel = root_linvel[:, 2]
+        z_vel_prev = info["celebration_z_velocity_prev"]
+        
+        # 穿过零点向上表示一次跳跃起始
+        jump_detected = (z_vel_prev < 0.1) & (z_vel > 0.2)  # 从下降转为上升
+        
+        # 只有在庆祝点时才计数
+        jump_count = info["jump_count"].copy()
+        jump_count = np.where(jump_detected & at_celebration_point, jump_count + 1, jump_count)
+        info["jump_count"] = jump_count
+        
+        # 保存当前Z速度供下一步使用
+        info["celebration_z_velocity_prev"] = z_vel.copy()
+        
+        # 达到3次跳跃时触发奖励（仅一次）
+        celebration_achieved = (jump_count >= 3) & (~info["celebration_bonus_given"]) & at_celebration_point
+        celebration_reward = np.where(celebration_achieved, 2.0, 0.0)
+        info["celebration_bonus_given"] |= celebration_achieved
+        
+        # ===== 7. 惩罚项 =====
+        
+        # 倾斜惩罚（防摔倒）
+        gxy = np.linalg.norm(projected_gravity[:, :2], axis=1)
+        gz = projected_gravity[:, 2]
+        tilt_angle = np.arctan2(gxy, np.abs(gz))
+        
+        tilt_penalty = np.where(
+            tilt_angle < np.deg2rad(40),
+            0.0,
+            np.where(
+                tilt_angle < np.deg2rad(60),
+                -0.3 * (tilt_angle - np.deg2rad(40)) / (np.deg2rad(20)),
+                -10.0
+            )
+        )
+        
+        # 出界惩罚
+        out_of_bounds = np.linalg.norm(root_pos[:, :2], axis=1) > 12.0
+        boundary_penalty = np.where(out_of_bounds, -20.0, 0.0)
+        
+        # 轻度Z轴运动惩罚
+        z_vel_penalty = -0.2 * np.square(root_linvel[:, 2])
+        
+        # ===== 综合奖励 =====
+        reward = (
+            approach_reward +
+            laughing_face_reward +
+            red_package_reward +
+            arrival_reward +
+            stop_bonus +
+            celebration_reward +
+            tilt_penalty +
+            boundary_penalty +
+            z_vel_penalty
+        )
+        
+        reward = np.clip(reward, -50.0, 40.0)
+        reward = np.nan_to_num(reward, nan=0.0)
         
         return reward
 
