@@ -24,20 +24,11 @@ from motrix_envs.math.quaternion import Quaternion
 from .cfg import VBotSection01EnvCfg
 
 
-def generate_repeating_array(num_period, num_reset, period_counter):
-    """
-    生成重复数组，用于在固定位置中循环选择
-    num_period: 位置总数
-    num_reset: 需要重置的环境数
-    period_counter: 当前计数器
-    """
-    idx = []
-    for i in range(num_reset):
-        idx.append((period_counter + i) % num_period)
-    return np.array(idx)
-
-
 @registry.env("MotrixArena_S1_section01_56", "np")
+@registry.env("MotrixArena_S1_section011_56", "np")
+@registry.env("MotrixArena_S1_section012_56", "np")
+@registry.env("MotrixArena_S1_section013_56", "np")
+
 class VBotSection01Env(NpEnv):
     """
     VBot在Section01地形上的导航任务
@@ -88,10 +79,45 @@ class VBotSection01Env(NpEnv):
         
         # 初始位置生成参数：从配置文件读取
         self.spawn_center = np.array(cfg.init_state.pos, dtype=np.float32)  # 从配置读取
-        self.spawn_range = 0.1  # 随机生成范围：±0.1m（0.2m×0.2m区域）
+        self.spawn_xy_range = np.array(cfg.init_state.pos_randomization_range, dtype=np.float32)
     
         # 导航统计计数器
         self.navigation_stats_step = 0
+
+        # ========== 课程学习（Curriculum Learning） ==========
+        # 50%环境从正常起点出发，50%随机散布在赛道上
+        # 让机器人从近处学起，逐步掌握全程
+        self._curriculum_spawn_fraction = 0.5  # 50%环境用课程出生
+        self._curriculum_spawn_z = 1.5  # 课程出生高度，足够高避免卡地形
+
+        # ========== 从cfg读取阶段任务参数 ==========
+        task_cfg = cfg.task_config
+        self.task_name = task_cfg.task_name
+        self.enable_landmark_rewards = task_cfg.enable_landmark_rewards
+        self.enable_celebration_reward = task_cfg.enable_celebration_reward
+
+        self.smile_positions = np.array(task_cfg.smile_positions, dtype=np.float32)
+        if self.smile_positions.size == 0:
+            self.smile_positions = np.zeros((0, 2), dtype=np.float32)
+        self.smile_radius = float(task_cfg.smile_radius)
+        self.smile_reward = float(task_cfg.smile_reward)
+
+        self.package_positions = np.array(task_cfg.package_positions, dtype=np.float32)
+        if self.package_positions.size == 0:
+            self.package_positions = np.zeros((0, 2), dtype=np.float32)
+        self.package_radius = float(task_cfg.package_radius)
+        self.package_reward = float(task_cfg.package_reward)
+
+        self.goal_y = float(task_cfg.goal_y)
+        self.goal_reached_reward = float(task_cfg.goal_reached_reward)
+
+        self.celebration_reward = float(task_cfg.celebration_reward)
+        self.required_jumps = int(task_cfg.required_jumps)
+
+        self.boundary_x = float(task_cfg.boundary_x)
+        self.boundary_y_max = float(task_cfg.boundary_y_max)
+        self.tilt_threshold_deg = float(task_cfg.tilt_threshold_deg)
+        self.gravity_z_termination_threshold = -np.cos(np.deg2rad(self.tilt_threshold_deg))
     
     def _init_buffer(self):
         """初始化缓存和参数"""
@@ -111,7 +137,7 @@ class VBotSection01Env(NpEnv):
                     self.default_angles[i] = angle
         
         self._init_dof_pos[-self._num_action:] = self.default_angles
-        self.action_filter_alpha = 0.3
+        self.action_filter_alpha = 0.6  # v7.2: 与section001保持一致，加快响应
     
     def _find_target_marker_dof_indices(self):
         """查找target_marker在dof_pos中的索引位置"""
@@ -133,6 +159,7 @@ class VBotSection01Env(NpEnv):
             self._init_dof_pos[self._robot_arrow_dof_start:self._robot_arrow_dof_end] = [0.0, 0.0, arrow_init_height, 0.0, 0.0, 0.0, 1.0]
         if self._desired_arrow_dof_end <= len(self._init_dof_pos):
             self._init_dof_pos[self._desired_arrow_dof_start:self._desired_arrow_dof_end] = [0.0, 0.0, arrow_init_height, 0.0, 0.0, 0.0, 1.0]
+    
     
     def _init_contact_geometry(self):
         """初始化接触检测所需的几何体索引"""
@@ -467,53 +494,364 @@ class VBotSection01Env(NpEnv):
     
     def _compute_terminated(self, state: NpEnvState) -> NpEnvState:
         """
-        重写终止条件，与locomotion stairs完全一致
+        终止条件:
+        1. 真正翻倒 (倾斜>70°, 坑洼中30-70°倾斜是正常的)
+        2. 超出边界 (X>±6m 或 Y>各阶段设定)
+        3. 物理发散 (NaN检测)
+        4. 卡住不动 (连续400步速度<0.05且未到达终点)
         """
         data = state.data
+        info = state.info
+        root_pos, root_quat, root_vel = self._extract_root_state(data)
         
-        # 基座接触地面终止（使用传感器）
-        # try:
-        #     base_contact_value = self._model.get_sensor_value("base_contact", data)
-        #     if base_contact_value.ndim == 0:
-        #         base_contact = np.array([base_contact_value > 0.01], dtype=bool)
-        #     elif base_contact_value.shape[0] != self._num_envs:
-        #         base_contact = np.full(self._num_envs, base_contact_value.flatten()[0] > 0.01, dtype=bool)
-        #     else:
-        #         base_contact = (base_contact_value > 0.01).flatten()[:self._num_envs]
-        # except Exception as e:
-        #     print(f"[Warning] 无法读取base_contact传感器: {e}")
-        #     base_contact = np.zeros(self._num_envs, dtype=bool)
+        # 获取projected gravity来检测倾斜
+        projected_gravity = self._compute_projected_gravity(root_quat)
+        gravity_z = projected_gravity[:, 2]  # Z分量，正常站立时应≈-1
         
-        # terminated = base_contact.copy()
-        terminated = np.zeros(self._num_envs, dtype=bool)
+        # 倾斜检测：cos(60°) ≈ 0.5，gravity_z应该<-0.5才算正常
+        tilt_terminated = gravity_z > self.gravity_z_termination_threshold
         
-        return state.replace(terminated=terminated)
+        # 边界检测（X方向有墙壁不需要检测；Y<-3.5掉下悬崖；Y超出地图终止）
+        # 出生点Y=-2.4±0.5，最远Y=-2.9，所以终止线放-3.5给足缓冲
+        y_out_forward = root_pos[:, 1] > self.boundary_y_max
+        y_fall_backward = root_pos[:, 1] < -3.5  # 后退掉落悬崖（远离出生点）
+        boundary_terminated = y_out_forward | y_fall_backward
+        
+        # 物理发散检测
+        nan_terminated = np.any(np.isnan(root_pos), axis=1)
+        
+        # 卡住检测：低速持续时间
+        if "stuck_counter" not in info:
+            info["stuck_counter"] = np.zeros(root_pos.shape[0], dtype=np.int32)
+        
+        # 检测XY平面速度
+        xy_speed = np.linalg.norm(root_vel[:, :2], axis=1)
+        is_moving = xy_speed > 0.05  # 速度阈值5cm/s
+        
+        # 更新卡住计数器
+        info["stuck_counter"] = np.where(is_moving, 0, info["stuck_counter"] + 1)
+        
+        # 卡住超过400步（4秒）且未到达终点就终止
+        reached_goal = root_pos[:, 1] >= self.goal_y
+        stuck_terminated = (info["stuck_counter"] > 400) & (~reached_goal)
+        
+        # 合并所有终止条件
+        terminated = tilt_terminated | boundary_terminated | nan_terminated | stuck_terminated
+        
+        return state.replace(terminated=terminated, info=info)
     
     def _compute_reward(self, data: mtx.SceneData, info: dict, velocity_commands: np.ndarray) -> np.ndarray:
         """
-        导航任务奖励计算
+        Phase1 (Section011) 导航任务奖励计算 - 优化路径引导
+        
+        最优路线: START → 笑脸层横向收集 → 红包层横向收集 → 2026平台 → 庆祝
+        得分系统:
+        - 笑脸收集: 3个×4分 = 12分
+        - 红包收集: 3个×2分 = 6分
+        - 到达2026: 20分
+        - 庆祝动作: 2分
+        总计最高40分
         """
         cfg = self._cfg
+        root_pos, root_quat, root_vel = self._extract_root_state(data)
+        robot_xy = root_pos[:, :2]
+        robot_y = root_pos[:, 1]
+        robot_z_vel = root_vel[:, 2]  # Z轴速度，用于检测跳跃
         
-        # 计算总奖励
-        reward = np.array([0])
+        num_envs = data.shape[0]
+        reward = np.zeros(num_envs, dtype=np.float32)
+        
+        # ========== 1. 阶段性引导奖励 ==========
+        # 统计已收集的地标数量
+        smile_collected_count = np.zeros(num_envs, dtype=np.int32)
+        package_collected_count = np.zeros(num_envs, dtype=np.int32)
+        
+        if self.enable_landmark_rewards:
+            for i in range(len(self.smile_positions)):
+                collected_key = f"smile_{i}_collected"
+                if collected_key in info:
+                    smile_collected_count += info[collected_key].astype(np.int32)
+            
+            for i in range(len(self.package_positions)):
+                collected_key = f"package_{i}_collected"
+                if collected_key in info:
+                    package_collected_count += info[collected_key].astype(np.int32)
+        
+        # ========== 专家级奖励系统 v7.5 ==========
+        # v7.5修复：机器人默认朝+X，但目标在+Y → v7.4硬编码vy导致方向错误
+        # 关键改动：前进奖励改为dot(vel, goal_dir)投影，加回弱朝向对齐
+        # 保持RL自主决策：速度大小自由 + 地标收集自然引导横向
+        
+        # --- 计算目标方向（用于前进投影+距离势函数） ---
+        pose_commands = info["pose_commands"]
+        goal_xy = pose_commands[:, :2]
+        goal_dir = goal_xy - robot_xy
+        goal_dist = np.linalg.norm(goal_dir, axis=1, keepdims=True)
+        goal_dir_unit = goal_dir / np.maximum(goal_dist, 1e-6)
+        
+        # 1. 速度大小跟踪（步态核心驱动力：跑快就奖励，不限方向）
+        vel_xy = root_vel[:, :2]
+        speed = np.linalg.norm(vel_xy, axis=1)  # 速度大小，任意方向
+        speed_error = np.square(speed - 1.0)  # 期望速度1.0m/s
+        tracking_speed = np.exp(-speed_error / 0.25)
+        reward += 1.0 * tracking_speed  # 跑得快就有奖励，不管往哪跑
+        
+        # 2. 前进投影（v7.5修复：从section001移植dot(vel, target_dir)，不再硬编码vy）
+        # 机器人朝+X但目标在+Y，用投影才能正确奖励朝目标方向的速度
+        vel_toward_goal = np.sum(vel_xy * goal_dir_unit.squeeze(), axis=1)
+        forward_progress = np.clip(vel_toward_goal, -0.5, 1.5)
+        reward += 0.8 * forward_progress  # 权重提高到0.8，方向正确了可以给更多
+        
+        # 3. 弱朝向对齐（帮助初始转向：机器人朝+X需要转90°朝+Y）
+        gyro = self._model.get_sensor_value(cfg.sensor.base_gyro, data)
+        robot_heading = self._get_heading_from_quat(root_quat)
+        desired_heading = np.arctan2(goal_dir[:, 1], goal_dir[:, 0]).flatten()
+        heading_error = desired_heading - robot_heading
+        heading_error = np.where(heading_error > np.pi, heading_error - 2*np.pi, heading_error)
+        heading_error = np.where(heading_error < -np.pi, heading_error + 2*np.pi, heading_error)
+        heading_align = np.exp(-np.square(heading_error / 0.6))
+        reward += 0.3 * heading_align  # 弱朝向，不压制横向收集地标
+        
+        # v7.6: 移除角速度限制，让机器人可以自由转动
+        # 卡住时多转转可能找到新路径，不应该限制yaw_rate
+        
+        # 4. 距离终点势函数（靠近终点就奖励，保持全局前进趋势）
+        dist_to_goal = goal_dist.flatten()
+        if "prev_dist_to_goal" not in info:
+            info["prev_dist_to_goal"] = dist_to_goal.copy()
+        dist_improvement = info["prev_dist_to_goal"] - dist_to_goal
+        goal_shaping = np.clip(dist_improvement * 2.0, -0.1, 0.2)
+        reward += goal_shaping
+        info["prev_dist_to_goal"] = dist_to_goal.copy()
+        
+        # 6. 存活奖励（鼓励不摔倒）
+        reward += 0.005
+        
+        # 7. 新区域探索奖励（到达距目标更近的位置时给一次性奖励）
+        if "min_dist_to_goal" not in info:
+            info["min_dist_to_goal"] = dist_to_goal.copy()
+        new_territory = dist_to_goal < info["min_dist_to_goal"] - 0.2  # 比之前最近再近0.5m
+        reward += new_territory.astype(np.float32) * 1.0  # 每次突破+1.0
+        info["min_dist_to_goal"] = np.minimum(info["min_dist_to_goal"], dist_to_goal)
+        
+        # 8. 软倾斜惩罚（渐进式：坑洼地形倾斜是正常的，不应终止）
+        projected_gravity = self._compute_projected_gravity(root_quat)
+        gravity_z = projected_gravity[:, 2]  # 正常站立时≈-1，完全倒下时≈0
+        # tilt_angle ≈ arccos(-gravity_z)：0°=站直，90°=侧翻
+        tilt_cos = np.clip(-gravity_z, 0.0, 1.0)  # 0=倒下, 1=站直
+        # 45°以内无惩罚，45-70°渐进惩罚，70°以上终止(由cfg.tilt_threshold_deg控制)
+        # v7.1: 30°→45°，快跑过坑洼时30-40°倾斜很常见，不应惩罚
+        soft_tilt_penalty = np.where(
+            tilt_cos > 0.707,  # cos(45°)=0.707, tilt<45°: 无惩罚
+            0.0,
+            -0.002 * (0.707 - tilt_cos) / 0.707  # 最大约-0.002/步
+        )
+        reward += soft_tilt_penalty
+        
+        # 2. 地标磁吸引力（v7.5修复：用dot(vel, dir)代替仅X方向吸引）
+        landmark_attraction = np.zeros(num_envs, dtype=np.float32)
+        
+        if self.enable_landmark_rewards:
+            vel_2d = root_vel[:, :2]  # [E, 2] XY速度
+            
+            # 笑脸吸引力（全向量化）
+            if len(self.smile_positions) > 0:
+                s_diff = self.smile_positions[np.newaxis, :, :] - robot_xy[:, np.newaxis, :]  # [E, N_s, 2]
+                s_dist = np.linalg.norm(s_diff, axis=2)  # [E, N_s]
+                s_dir = s_diff / np.maximum(s_dist[:, :, np.newaxis], 1e-6)  # [E, N_s, 2] 单位方向
+                
+                s_collected = np.stack([
+                    info.get(f"smile_{i}_collected", np.zeros(num_envs, dtype=bool))
+                    for i in range(len(self.smile_positions))
+                ], axis=1)
+                
+                s_valid = (s_dist < 4.0) & (~s_collected)  # 检测范围3→4m
+                s_strength = np.clip((4.0 - s_dist) / 4.0, 0, 1) * s_valid
+                # dot(vel, dir): 向地标方向移动就奖励
+                s_vel_toward = np.sum(vel_2d[:, np.newaxis, :] * s_dir, axis=2)  # [E, N_s]
+                landmark_attraction += np.sum(
+                    s_strength * np.clip(s_vel_toward * 0.01, 0, 0.02), axis=1
+                )
+            
+            # 红包吸引力（全向量化）
+            if len(self.package_positions) > 0:
+                p_diff = self.package_positions[np.newaxis, :, :] - robot_xy[:, np.newaxis, :]
+                p_dist = np.linalg.norm(p_diff, axis=2)
+                p_dir = p_diff / np.maximum(p_dist[:, :, np.newaxis], 1e-6)
+                
+                p_collected = np.stack([
+                    info.get(f"package_{i}_collected", np.zeros(num_envs, dtype=bool))
+                    for i in range(len(self.package_positions))
+                ], axis=1)
+                
+                p_valid = (p_dist < 4.0) & (~p_collected)
+                p_strength = np.clip((4.0 - p_dist) / 4.0, 0, 1) * p_valid
+                p_vel_toward = np.sum(vel_2d[:, np.newaxis, :] * p_dir, axis=2)
+                landmark_attraction += np.sum(
+                    p_strength * np.clip(p_vel_toward * 0.01, 0, 0.02), axis=1
+                )
+        
+        reward += landmark_attraction
+        
+        # 3. 卡住时鼓励旋转探索（v7.6: 横移→旋转，遇到洼地转个方向找出路）
+        # 当stuck_counter>100步(1秒)时，奖励角速度，鼓励转向寻找新路径
+        stuck_counter = info.get("stuck_counter", np.zeros(num_envs, dtype=np.int32))
+        is_stuck = stuck_counter > 100
+        angular_speed = np.abs(gyro[:, 2])  # 角速度绝对值（转得越快越好）
+        rotation_explore_reward = np.where(
+            is_stuck,
+            np.clip(angular_speed * 0.8, 0, 0.4),  # 卡住时转动有奖励
+            0.0
+        )
+        reward += rotation_explore_reward
+        
+        # 4. 后退警告惩罚（Y方向接近起点后方悬崖时惩罚）
+        # X方向有墙壁物理屏障，不需要软惩罚
+        spawn_y = self.spawn_center[1]  # -2.4
+        y_backward_dist = robot_y - (spawn_y - 1.0)  # 距离悬崖边缘的距离
+        too_close_backward = y_backward_dist < 1.0  # 1m安全距离
+        backward_penalty = np.where(
+            too_close_backward,
+            -0.5 * (1.0 - y_backward_dist),  # 每步最大-0.5
+            0.0
+        )
+        reward += backward_penalty
+        
+        # ========== 2. 地标收集奖励（区域化检测） ==========
+        if self.enable_landmark_rewards:
+            # 笑脸：使用矩形区域 ±1.0m（增大检测范围，促进早期探索发现）
+            for i, smile_pos in enumerate(self.smile_positions):
+                # 区域判断：|X - lx| < 1.0 且 |Y - ly| < 1.0
+                in_x_range = np.abs(robot_xy[:, 0] - smile_pos[0]) < 1.0
+                in_y_range = np.abs(robot_xy[:, 1] - smile_pos[1]) < 1.0
+                in_range = in_x_range & in_y_range
+
+                collected_key = f"smile_{i}_collected"
+                if collected_key not in info:
+                    info[collected_key] = np.zeros(num_envs, dtype=bool)
+
+                first_collect = in_range & (~info[collected_key])
+                reward += first_collect.astype(np.float32) * self.smile_reward
+                info[collected_key] = info[collected_key] | in_range
+
+            # 红包：使用矩形区域 ±0.6m（增大检测范围）
+            for i, pkg_pos in enumerate(self.package_positions):
+                # 区域判断：|X - lx| < 0.6 且 |Y - ly| < 0.6
+                in_x_range = np.abs(robot_xy[:, 0] - pkg_pos[0]) < 0.6
+                in_y_range = np.abs(robot_xy[:, 1] - pkg_pos[1]) < 0.6
+                in_range = in_x_range & in_y_range
+
+                collected_key = f"package_{i}_collected"
+                if collected_key not in info:
+                    info[collected_key] = np.zeros(num_envs, dtype=bool)
+
+                first_collect = in_range & (~info[collected_key])
+                reward += first_collect.astype(np.float32) * self.package_reward
+                info[collected_key] = info[collected_key] | in_range
+        
+        # ========== 4. 到达终点奖励（强制完整收集） ==========
+        reached_goal = robot_y >= self.goal_y
+        
+        goal_reached_key = "goal_reached"
+        if goal_reached_key not in info:
+            info[goal_reached_key] = np.zeros(num_envs, dtype=bool)
+        
+        first_reach = reached_goal & (~info[goal_reached_key])
+        
+        # 完整收集50分，跳过只给8分（6.25倍差距！）
+        if self.enable_landmark_rewards:
+            all_collected = (smile_collected_count >= len(self.smile_positions)) & \
+                          (package_collected_count >= len(self.package_positions))
+            bonus_reward = np.where(
+                all_collected,
+                self.goal_reached_reward,  # 50分（cfg中已修改）
+                self.goal_reached_reward * 0.16  # 8分（严厉惩罚）
+            )
+        else:
+            bonus_reward = np.full(num_envs, self.goal_reached_reward, dtype=np.float32)
+        
+        reward += first_reach.astype(np.float32) * bonus_reward
+        info[goal_reached_key] = info[goal_reached_key] | reached_goal
+        
+        # ========== 5. 庆祝动作检测（按阶段配置启用） ==========
+        # 初始化跳跃计数和上一帧Z速度
+        if "jump_count" not in info:
+            info["jump_count"] = np.zeros(num_envs, dtype=np.int32)
+        if "prev_z_vel" not in info:
+            info["prev_z_vel"] = np.zeros(num_envs, dtype=np.float32)
+        if "celebration_done" not in info:
+            info["celebration_done"] = np.zeros(num_envs, dtype=bool)
+        
+        # 只在到达终点后计数跳跃
+        at_goal = info[goal_reached_key]
+        
+        # 检测Z速度过零 (从正变负 = 一次跳跃落地)
+        prev_positive = info["prev_z_vel"] > 0.1
+        curr_negative = robot_z_vel < -0.1
+        zero_crossing = prev_positive & curr_negative & at_goal
+        
+        # 更新跳跃计数
+        info["jump_count"] = np.where(
+            zero_crossing & (~info["celebration_done"]),
+            info["jump_count"] + 1,
+            info["jump_count"]
+        )
+        
+        # 重置：离开终点区域时清零
+        info["jump_count"] = np.where(~at_goal, 0, info["jump_count"])
+        
+        # 完成庆祝动作奖励
+        if self.enable_celebration_reward and self.required_jumps > 0:
+            celebration_complete = (info["jump_count"] >= self.required_jumps) & (~info["celebration_done"])
+            reward += celebration_complete.astype(np.float32) * self.celebration_reward
+            info["celebration_done"] = info["celebration_done"] | celebration_complete
+        
+        # 更新上一帧Z速度
+        info["prev_z_vel"] = robot_z_vel.copy()
+        
+        # ========== 5. 稳定性惩罚 ==========
+        # v7.1: 移除角速度惩罚——大步快跑时陀螺仪值大是正常的
+        # 已有倾斜检测(>70°终止)防止摔倒，不需要额外惩罚角速度
+        
+        # 终止惩罚（仅对真正翻倒>70°才给，坑洼中倾斜不惩罚）
+        # 注意：soft_tilt_penalty已经在上面处理了45-70°的渐进惩罚
+        tilt_terminated = gravity_z > self.gravity_z_termination_threshold  # 复用上面的gravity_z
+        reward += tilt_terminated.astype(np.float32) * (-10.0)
+        
+        # 后退掉落惩罚（Y<-3.5掉下悬崖，与终止条件一致）
+        y_fall = robot_y < -3.2
+        reward += y_fall.astype(np.float32) * (-30.0)
         
         return reward
-
     def reset(self, data: mtx.SceneData, done: np.ndarray = None) -> tuple[np.ndarray, dict]:
         cfg: VBotSection01EnvCfg = self._cfg
         num_envs = data.shape[0]
         
-        # 在高台中央小范围内随机生成位置
-        # X, Y: 在spawn_center周围 ±spawn_range 范围内随机
+        # 按配置中的随机范围生成初始位置偏移
+        # pos_randomization_range: [x_min, y_min, x_max, y_max]
         random_xy = np.random.uniform(
-            low=-self.spawn_range,
-            high=self.spawn_range,
+            low=self.spawn_xy_range[:2],
+            high=self.spawn_xy_range[2:4],
             size=(num_envs, 2)
         )
         robot_init_xy = self.spawn_center[:2] + random_xy  # [num_envs, 2]
-        terrain_heights = np.full(num_envs, self.spawn_center[2], dtype=np.float32)  # 使用配置的高度
+        terrain_heights = np.full(num_envs, self.spawn_center[2], dtype=np.float32)
         
+        # === 课程学习：50%环境随机散布在赛道上 ===
+        # 让机器人先学近处（靠近终点），再逐步掌握远处（起点到终点全程）
+        num_curriculum = int(num_envs * self._curriculum_spawn_fraction)
+        if num_curriculum > 0:
+            cur_idx = np.arange(num_curriculum)  # 前一半环境用课程出生
+            # Y: 从起点到终点前1.5m范围内随机
+            cur_y = np.random.uniform(
+                self.spawn_center[1], self.goal_y - 1.5,
+                size=num_curriculum
+            )
+            # X: 赛道宽度内随机（避开墙壁）
+            cur_x = np.random.uniform(-4.0, 4.0, size=num_curriculum)
+            robot_init_xy[cur_idx, 0] = cur_x
+            robot_init_xy[cur_idx, 1] = cur_y
+            terrain_heights[cur_idx] = self._curriculum_spawn_z  # 高处出生，安全落地
         
         # 组合XYZ坐标
         robot_init_pos = robot_init_xy  # [num_envs, 2]
@@ -530,7 +868,8 @@ class VBotSection01Env(NpEnv):
             high=cfg.commands.pose_command_range[3:5],
             size=(num_envs, 2)
         )
-        target_positions = robot_init_pos + target_offset
+        # 目标在cfg中定义为世界坐标，直接使用
+        target_positions = target_offset
         
         target_headings = np.random.uniform(
             low=cfg.commands.pose_command_range[2],
@@ -688,7 +1027,23 @@ class VBotSection01Env(NpEnv):
             # 新增：与locomotion一致的字段
             "last_dof_vel": np.zeros((num_envs, self._num_action), dtype=np.float32),  # 上一步关节速度
             "contacts": np.zeros((num_envs, self.num_foot_check), dtype=np.bool_),  # 足部接触状态
+            "goal_reached": np.zeros(num_envs, dtype=bool),
+            "jump_count": np.zeros(num_envs, dtype=np.int32),
+            "prev_z_vel": np.zeros(num_envs, dtype=np.float32),
+            "celebration_done": np.zeros(num_envs, dtype=bool),
+            "prev_dist_to_goal": np.linalg.norm(
+                pose_commands[:, :2] - root_pos[:, :2], axis=1
+            ),
+            "min_dist_to_goal": np.linalg.norm(
+                pose_commands[:, :2] - root_pos[:, :2], axis=1
+            ),
         }
+
+        # 动态初始化地标收集状态，便于不同阶段复用
+        for i in range(len(self.smile_positions)):
+            info[f"smile_{i}_collected"] = np.zeros(num_envs, dtype=bool)
+        for i in range(len(self.package_positions)):
+            info[f"package_{i}_collected"] = np.zeros(num_envs, dtype=bool)
         
         return obs, info
     
