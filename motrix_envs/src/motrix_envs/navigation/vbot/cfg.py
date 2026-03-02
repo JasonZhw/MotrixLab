@@ -210,72 +210,86 @@ class VBotSection001EnvCfg(VBotEnvCfg):
 @registry.envcfg("MotrixArena_S1_section01_56")
 @dataclass
 class VBotSection01EnvCfg(VBotStairsEnvCfg):
-    """VBot Section01单独训练配置 - 完整section01地形"""
+    """VBot Section01调试配置 - 便于修改和view坐标"""
     model_file: str = os.path.dirname(__file__) + "/xmls/scene_section01.xml"
-    max_episode_seconds: float = 60.0  # 完整路线需要更长时间
-    max_episode_steps: int = 6000
+    max_episode_seconds: float = 80.0
+    max_episode_steps: int = 8000
+    render_spacing: float = 0.0
     
     @dataclass
     class Asset:
         body_name = "base"
         foot_names = ["FR", "FL", "RR", "RL"]
         terminate_after_contacts_on = ["collision_middle_box", "collision_head_box"]
-        ground_subtree = "C"  # section01地形的geom前缀是C1_, C2_, C3_，用"C"匹配
+        ground_subtree = "C"
     
     asset: Asset = field(default_factory=Asset)
     
     @dataclass
     class InitState:
-        pos = [0, -2.4, 0.5]  # START区域起点
+        pos = [0, -2.4, 0.5]  # START区域
         pos_randomization_range = [-0.5, -0.5, 0.5, 0.5]
-
         default_joint_angles = {
-            "FR_hip_joint": -0.0,
-            "FR_thigh_joint": 0.9,
-            "FR_calf_joint": -1.8,
-            "FL_hip_joint": 0.0,
-            "FL_thigh_joint": 0.9,
-            "FL_calf_joint": -1.8,
-            "RR_hip_joint": -0.0,
-            "RR_thigh_joint": 0.9,
-            "RR_calf_joint": -1.8,
-            "RL_hip_joint": 0.0,
-            "RL_thigh_joint": 0.9,
-            "RL_calf_joint": -1.8,
+            "FR_hip_joint": -0.0, "FR_thigh_joint": 0.9, "FR_calf_joint": -1.8,
+            "FL_hip_joint": 0.0, "FL_thigh_joint": 0.9, "FL_calf_joint": -1.8,
+            "RR_hip_joint": -0.0, "RR_thigh_joint": 0.9, "RR_calf_joint": -1.8,
+            "RL_hip_joint": 0.0, "RL_thigh_joint": 0.9, "RL_calf_joint": -1.8,
         }
+    
     @dataclass
     class Commands:
-        pose_command_range = [-1, 32, 0, 1, 32, 0]  #最终目标
+        pose_command_range = [-4, 32.0, 0, 4.0, 32.0, 0]  # 全局终点Y=32
+    
     @dataclass
     class ControlConfig:
-        action_scale = 0.25
+        action_scale = 0.4
 
     @dataclass
     class TaskConfig:
-        # 通用任务参数（完整路线默认值）
-        task_name: str = "section01"
-        enable_landmark_rewards: bool = False
-        enable_celebration_reward: bool = False
+        task_name: str = "section01_full"
+        enable_landmark_rewards: bool = True
+        enable_celebration_reward: bool = True
 
-        # 地标（默认关闭）
-        smile_positions: list[list[float]] = field(default_factory=list)
-        smile_radius: float = 1.0
-        smile_reward: float = 4.0
+        # Section011笑脸（3个）
+        smile_positions: list[list[float]] = field(
+            default_factory=lambda: [[-3.0, 0.1], [0.0, 0.1], [3.0, 0.1]]
+        )
+        smile_radius: float = 1.3
+        smile_reward: float = 10.0
 
-        package_positions: list[list[float]] = field(default_factory=list)
+        # 所有红包（共10个：section011的3个 + section012吊桥的1个拜年 + section013河床的6个）
+        package_positions: list[list[float]] = field(
+            default_factory=lambda: [
+                # Section011红包（3个）
+                [-3.0, 4.1], [0.0, 4.1], [3.0, 4.1],
+                # Section012吊桥拜年红包（1个）
+                [-3.0, 18.1],
+                # Section013河床红包（6个：5个普通+1个拜年）
+                [0.5, 19.5], [-2.9, 18.1], [0.5, 16.0], 
+                [2.0, 18.0], [3.5, 16.0], [3.5, 19.5]
+            ]
+        )
         package_radius: float = 0.8
-        package_reward: float = 2.0
+        package_reward: float = 5.0
 
-        # 终点与庆祝
-        goal_y: float = 32.0
-        goal_reached_reward: float = 20.0
-        celebration_reward: float = 2.0
-        required_jumps: int = 3
+        # 里程碑平台（3个需要庆祝的位置）
+        milestone_positions: list[list[float]] = field(
+            default_factory=lambda: [
+                [-3.0, 8.0],   # 2026平台
+                [0.0, 24.0],  # 丙午大吉
+                [0.0, 32.0]   # 最终终点
+            ]
+        )
+        milestone_reward: float = 50.0  # 每个里程碑奖励
 
-        # 终止条件
+        goal_y: float = 32.0  # 最终终点
+        goal_reached_reward: float = 100.0
+        celebration_reward: float = 15.0  # 每次庆祝奖励（提高，强化在平台完成动作的动机）
+        required_jumps: int = 3  # 每次庆祝需要旋转3圈
+
         boundary_x: float = 6.0
-        boundary_y_max: float = 40.0
-        tilt_threshold_deg: float = 60.0
+        boundary_y_max: float = 35.0  # 扩展到终点后
+        tilt_threshold_deg: float = 70.0
 
     init_state: InitState = field(default_factory=InitState)
     commands: Commands = field(default_factory=Commands)

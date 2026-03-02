@@ -87,7 +87,7 @@
     <light name="spotlight" mode="targetbodycom" target="base" pos="0 -1 2" cutoff="30"/>
     
     <!-- 目标位置标记：三维箭头 (圆柱+圆锥) -->
-    <body name="target_marker" pos="0 0 1.5">
+    <body name="target_marker" pos="0 0 2.8">
       <joint name="target_x" type="slide" axis="1 0 0" limited="false"/>
       <joint name="target_y" type="slide" axis="0 1 0" limited="false"/>
       <joint name="target_yaw" type="hinge" axis="0 0 1" limited="false"/>
