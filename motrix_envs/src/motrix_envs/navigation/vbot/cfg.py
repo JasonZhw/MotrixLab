@@ -212,8 +212,8 @@ class VBotSection001EnvCfg(VBotEnvCfg):
 class VBotSection01EnvCfg(VBotStairsEnvCfg):
     """VBot Section01调试配置 - 便于修改和view坐标"""
     model_file: str = os.path.dirname(__file__) + "/xmls/scene_section01.xml"
-    max_episode_seconds: float = 80.0
-    max_episode_steps: int = 8000
+    max_episode_seconds: float = 100.0  # 增加到100秒，给楼梯足够时间
+    max_episode_steps: int = 10000  # 增加到10000步，对应100秒@100Hz
     render_spacing: float = 0.0
     
     @dataclass
@@ -242,7 +242,7 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
     
     @dataclass
     class ControlConfig:
-        action_scale = 0.4
+        action_scale = 0.50  # 楼梯优化：对齐legged_gym常用0.5，提升抬腿摆幅和台阶通过能力
 
     @dataclass
     class TaskConfig:
@@ -284,8 +284,8 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
 
         goal_y: float = 32.0  # 最终终点
         goal_reached_reward: float = 100.0
-        celebration_reward: float = 15.0  # 每次庆祝奖励（提高，强化在平台完成动作的动机）
-        required_jumps: int = 3  # 每次庆祝需要旋转3圈
+        celebration_reward: float = 15.0  # 每次庆祝奖励
+        
 
         boundary_x: float = 6.0
         boundary_y_max: float = 35.0  # 扩展到终点后
@@ -345,11 +345,10 @@ class VBotSection011Cfg(VBotSection01EnvCfg):
         goal_y: float = 8.0  # 2026平台位置
         goal_reached_reward: float = 50.0  # 完整收集到达：50分
         celebration_reward: float = 5.0  # 庆祝动作：5分
-        required_jumps: int = 3  # 庆祝动作所需"旋转圈数"（3圈=转3×360°）
 
         boundary_x: float = 6.0
         boundary_y_max: float = 11.0
-        tilt_threshold_deg: float = 70.0  # v7.1: 60→70°, 坑洼中40-55°倾斜正常，>70°才算真翻倒
+        tilt_threshold_deg: float = 65.0  # v7.2: 70→65°, 降低侧翻容忍度，vbot经常侧翻需要更早终止
     
     init_state: InitState = field(default_factory=InitState)
     commands: Commands = field(default_factory=Commands)
@@ -404,7 +403,6 @@ class VBotSection012Cfg(VBotSection01EnvCfg):
         goal_y: float = 24.0
         goal_reached_reward: float = 20.0
         celebration_reward: float = 2.0
-        required_jumps: int = 3
 
         boundary_x: float = 10.0
         boundary_y_max: float = 26.0
@@ -463,7 +461,6 @@ class VBotSection013Cfg(VBotSection01EnvCfg):
         goal_y: float = 32.0
         goal_reached_reward: float = 20.0
         celebration_reward: float = 2.0
-        required_jumps: int = 3
 
         boundary_x: float = 10.0
         boundary_y_max: float = 36.0

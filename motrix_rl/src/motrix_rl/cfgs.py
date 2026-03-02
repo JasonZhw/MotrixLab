@@ -375,24 +375,29 @@ class navigation:
     class VBotNavigationSection01PPOConfig(PPOCfg):
         """完整Section01训练配置 (最终验证用)"""
         seed: int = 42
-        num_envs: int = 2048
+        num_envs: int = 4096  # 4096为甜区：课程学习覆盖好+CPU压力可控
         play_num_envs: int = 1
-        max_env_steps: int = 1024 * 60_000
+        max_env_steps: int = 1024 * 100_000
         check_point_interval: int = 500
+        share_policy_value_features: bool = False  # 分离policy/value特征，多地形任务两者目标不同
 
-        learning_rate: float = 5e-5  # 极低学习率，仅微调
+        learning_rate: float = 1.5e-4
         rollouts: int = 32
         learning_epochs: int = 5
-        mini_batches: int = 64
-        discount_factor: float = 0.99
-        lambda_param: float = 0.95
+        mini_batches: int = 64  # batch=4096×32=131072, mini_batch=2048
+        discount_factor: float = 0.995  # 长路线/楼梯任务更重视长期回报
+        lambda_param: float = 0.97
         grad_norm_clip: float = 1.0
+        entropy_loss_scale: float = 0.008  # 保留适度探索，降低楼梯卡住局部最优概率
 
         ratio_clip: float = 0.2
         value_clip: float = 0.2
         clip_predicted_values: bool = True
 
-        policy_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
+        # obs=67维, act=12维
+        # policy: 等宽设计避免信息瓶颈，关注动作控制
+        # value: 稍宽，价值估计需要更强的全局状态理解
+        policy_hidden_layer_sizes: tuple[int, ...] = (256, 256, 128)
         value_hidden_layer_sizes: tuple[int, ...] = (512, 256, 128)
 
     @rlcfg("MotrixArena_S1_section011_56")
