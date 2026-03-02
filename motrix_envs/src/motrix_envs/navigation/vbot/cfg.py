@@ -331,7 +331,7 @@ class VBotSection011Cfg(VBotSection01EnvCfg):
         goal_y: float = 8.0  # 2026平台位置
         goal_reached_reward: float = 50.0  # 完整收集到达：50分
         celebration_reward: float = 5.0  # 庆祝动作：5分
-        required_jumps: int = 3
+        required_jumps: int = 3  # 庆祝动作所需"旋转圈数"（3圈=转3×360°）
 
         boundary_x: float = 6.0
         boundary_y_max: float = 11.0
