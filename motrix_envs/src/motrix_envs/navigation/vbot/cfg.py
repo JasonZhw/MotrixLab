@@ -242,35 +242,12 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
     
     @dataclass
     class ControlConfig:
-        action_scale = 0.50  # 楼梯优化：对齐legged_gym常用0.5，提升抬腿摆幅和台阶通过能力
+        action_scale = 0.32  # v7.9: 0.40→0.32，进一步降低动作幅度稳定行走
 
     @dataclass
     class TaskConfig:
         task_name: str = "section01_full"
-        enable_landmark_rewards: bool = True
         enable_celebration_reward: bool = True
-
-        # Section011笑脸（3个）
-        smile_positions: list[list[float]] = field(
-            default_factory=lambda: [[-3.0, 0.1], [0.0, 0.1], [3.0, 0.1]]
-        )
-        smile_radius: float = 1.3
-        smile_reward: float = 10.0
-
-        # 所有红包（共10个：section011的3个 + section012吊桥的1个拜年 + section013河床的6个）
-        package_positions: list[list[float]] = field(
-            default_factory=lambda: [
-                # Section011红包（3个）
-                [-3.0, 4.1], [0.0, 4.1], [3.0, 4.1],
-                # Section012吊桥拜年红包（1个）
-                [-3.0, 18.1],
-                # Section013河床红包（6个：5个普通+1个拜年）
-                [0.5, 19.5], [-2.9, 18.1], [0.5, 16.0], 
-                [2.0, 18.0], [3.5, 16.0], [3.5, 19.5]
-            ]
-        )
-        package_radius: float = 0.8
-        package_reward: float = 5.0
 
         # 里程碑平台（3个需要庆祝的位置）
         milestone_positions: list[list[float]] = field(
@@ -284,7 +261,7 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
 
         goal_y: float = 32.0  # 最终终点
         goal_reached_reward: float = 100.0
-        celebration_reward: float = 15.0  # 每次庆祝奖励
+        celebration_reward: float = 25.0  # 每次庆祝奖励（v7.8: 15→25，配合动作覆盖确保庆祝有高回报）
         
 
         boundary_x: float = 6.0
@@ -327,20 +304,7 @@ class VBotSection011Cfg(VBotSection01EnvCfg):
     @dataclass
     class TaskConfig:
         task_name: str = "section011"
-        enable_landmark_rewards: bool = True
         enable_celebration_reward: bool = True
-
-        smile_positions: list[list[float]] = field(
-            default_factory=lambda: [[-3.0, 0.1], [0.0, 0.1], [3.0, 0.1]]
-        )
-        smile_radius: float = 1.0
-        smile_reward: float = 10.0  # 提高到10分（不是比赛的4分）
-
-        package_positions: list[list[float]] = field(
-            default_factory=lambda: [[-3.0, 4.1], [0.0, 4.1], [3.0, 4.1]]
-        )
-        package_radius: float = 0.8
-        package_reward: float = 5.0  # 提高到5分（不是比赛的2分）
 
         goal_y: float = 8.0  # 2026平台位置
         goal_reached_reward: float = 50.0  # 完整收集到达：50分
@@ -389,16 +353,7 @@ class VBotSection012Cfg(VBotSection01EnvCfg):
     @dataclass
     class TaskConfig:
         task_name: str = "section012"
-        enable_landmark_rewards: bool = False
         enable_celebration_reward: bool = False
-
-        smile_positions: list[list[float]] = field(default_factory=list)
-        smile_radius: float = 1.0
-        smile_reward: float = 4.0
-
-        package_positions: list[list[float]] = field(default_factory=list)
-        package_radius: float = 0.8
-        package_reward: float = 2.0
 
         goal_y: float = 24.0
         goal_reached_reward: float = 20.0
@@ -447,16 +402,7 @@ class VBotSection013Cfg(VBotSection01EnvCfg):
     @dataclass
     class TaskConfig:
         task_name: str = "section013"
-        enable_landmark_rewards: bool = False
         enable_celebration_reward: bool = False
-
-        smile_positions: list[list[float]] = field(default_factory=list)
-        smile_radius: float = 1.0
-        smile_reward: float = 4.0
-
-        package_positions: list[list[float]] = field(default_factory=list)
-        package_radius: float = 0.8
-        package_reward: float = 2.0
 
         goal_y: float = 32.0
         goal_reached_reward: float = 20.0
