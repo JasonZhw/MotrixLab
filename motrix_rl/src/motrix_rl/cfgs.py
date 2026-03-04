@@ -375,14 +375,14 @@ class navigation:
     class VBotNavigationSection01PPOConfig(PPOCfg):
         """完整Section01训练配置 (最终验证用)"""
         seed: int = 42
-        num_envs: int = 2048  # 4096为甜区：课程学习覆盖好+CPU压力可控
+        num_envs: int = 2048  
         play_num_envs: int = 1
         max_env_steps: int = 2048 * 70_000
         check_point_interval: int = 1000
         share_policy_value_features: bool =True # 共享特征：全局策略统一表征，减少参数量加速收敛
 
-        learning_rate: float = 1.5e-4
-        rollouts: int = 32
+        learning_rate: float = 5e-4
+        rollouts: int = 64
         learning_epochs: int = 6
         mini_batches: int = 64  # batch=4096×32=131072, mini_batch=2048
         discount_factor: float = 0.995  # 长路线/楼梯任务更重视长期回报

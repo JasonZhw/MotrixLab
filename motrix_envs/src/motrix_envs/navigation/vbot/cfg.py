@@ -212,7 +212,7 @@ class VBotSection001EnvCfg(VBotEnvCfg):
 class VBotSection01EnvCfg(VBotStairsEnvCfg):
     """VBot Section01调试配置 - 便于修改和view坐标"""
     model_file: str = os.path.dirname(__file__) + "/xmls/scene_section01.xml"
-    max_episode_seconds: float = 100.0  # 增加到100秒，给楼梯足够时间
+    max_episode_seconds: float = 100  # 增加到100秒，给楼梯足够时间
     max_episode_steps: int = 10000  # 增加到10000步，对应100秒@100Hz
     render_spacing: float = 0.0
     
@@ -227,8 +227,8 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
     
     @dataclass
     class InitState:
-        pos = [0, -2.4, 0.5]  # START区域
-        pos_randomization_range = [-0.5, -0.5, 0.5, 0.5]
+        pos = [0.0, -2.8, 0.5]  # v7.18: 官方出生区中心 Y=(-3.4+-2.2)/2=-2.8
+        pos_randomization_range = [-3.5, -0.6, 3.5, 0.6]  # v7.18: X∈[-3.5,3.5], Y∈[-3.4,-2.2]
         default_joint_angles = {
             "FR_hip_joint": -0.0, "FR_thigh_joint": 0.9, "FR_calf_joint": -1.8,
             "FL_hip_joint": 0.0, "FL_thigh_joint": 0.9, "FL_calf_joint": -1.8,
@@ -238,11 +238,11 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
     
     @dataclass
     class Commands:
-        pose_command_range = [-4, 32.0, 0, 4.0, 32.0, 0]  # 全局终点Y=32
+        pose_command_range = [-3.5, 32.0, 0, 3.5, 32.0, 0]  # 全局终点Y=32
     
     @dataclass
     class ControlConfig:
-        action_scale = 0.32  # v7.9: 0.40→0.32，进一步降低动作幅度稳定行走
+        action_scale = 0.28  # v7.9: 0.40→0.32，进一步降低动作幅度稳定行走
 
     @dataclass
     class TaskConfig:
@@ -252,21 +252,21 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
         # 里程碑平台（3个需要庆祝的位置）
         milestone_positions: list[list[float]] = field(
             default_factory=lambda: [
-                [-3.0, 8.0],   # 2026平台
-                [0.0, 24.0],  # 丙午大吉
-                [0.0, 32.0]   # 最终终点
+                [-3.0, 7.7],   # 2026平台（官方Y=7.2~8.2，中心=7.7）
+                [0.0, 24.2],   # 丙午大吉（官方Y=23.7~24.7，中心=24.2）
+                [0.0, 32.0]    # 最终终点
             ]
         )
-        milestone_reward: float = 50.0  # 每个里程碑奖励
+        milestone_reward: float = 55.0  # 每个里程碑奖励
 
         goal_y: float = 32.0  # 最终终点
-        goal_reached_reward: float = 100.0
-        celebration_reward: float = 25.0  # 每次庆祝奖励（v7.8: 15→25，配合动作覆盖确保庆祝有高回报）
+        goal_reached_reward: float = 150.0
+        celebration_reward: float = 60  # 每次庆祝奖励（v7.8: 15→25，配合动作覆盖确保庆祝有高回报）
         
 
         boundary_x: float = 6.0
         boundary_y_max: float = 35.0  # 扩展到终点后
-        tilt_threshold_deg: float = 70.0
+        tilt_threshold_deg: float = 65.0  # v7.2: 70→65°, 降低侧翻容忍度，vbot经常侧翻需要更早终止
 
     init_state: InitState = field(default_factory=InitState)
     commands: Commands = field(default_factory=Commands)
