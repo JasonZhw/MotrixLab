@@ -81,27 +81,13 @@ class VBotSection01Env(NpEnv):
         self.spawn_center = np.array(cfg.init_state.pos, dtype=np.float32)  # 从配置读取
         self.spawn_xy_range = np.array(cfg.init_state.pos_randomization_range, dtype=np.float32)
     
-        # 导航统计计数器
-        self.navigation_stats_step = 0
-        
-        # 关键指标追踪（用于诊断）
-        self.metric_window = {
-            'robot_y': [],
-            'rewards': [],
-            'stair_pass': [],
-            'descent_pass': [],  # v7.9: 下楼梯完成率（Y>24，从wp13到达丙午平台）
-            'stuck_ratio': [],
-            'max_waypoint': []
-        }
-        self.metric_window_size = 1000
-
         # ========== 课程学习v3（Frontier-Biased Curriculum） ==========
         # 核心思路：跟踪训练前沿(global_max_wp)，自动把训练资源集中在"还没学会的地方"
         # 30%环境：从起点出发（保持完整路线能力，防遗忘）
         # 70%环境：课程出生，其中60%在前沿附近，40%在已学区域复习
         self._curriculum_spawn_fraction = 0.7  # 70%环境用课程出生
         self._curriculum_spawn_z = 2.0  # 课程出生高度（2.0m），足够高避免卡地形
-        self._global_max_wp = 0  # 训练中所有env曾到达的最远waypoint（动态更新）
+        self._global_max_wp = 0  # 训练前沿（课程学习需要）
 
         # ========== 从cfg读取阶段任务参数 ==========
         task_cfg = cfg.task_config
@@ -128,12 +114,15 @@ class VBotSection01Env(NpEnv):
         self.gravity_z_termination_threshold = -np.cos(np.deg2rad(self.tilt_threshold_deg))
 
         # 里程碑庆祝动作控制：先静止1秒，再保持预设姿势1秒，恢复2秒
-        self._celebration_hold_seconds = 1.5  # v7.18: 静止阶段 1.5
-        self._celebration_pose_seconds = 1.0  # v7.18: 姿势保持 1.5→1.0
+        self._celebration_hold_seconds = 1.2  # v7.18: 静止阶段 1.5
+        self._celebration_pose_seconds = 1.2  # v7.18: 姿势保持 1.5→1.0
         steps_per_second = cfg.max_episode_steps / max(cfg.max_episode_seconds, 1e-6)
         self._celebration_hold_steps = max(1, int(self._celebration_hold_seconds * steps_per_second))
         self._celebration_pose_steps = max(1, int(self._celebration_pose_seconds * steps_per_second))
-        self._celebration_exit_steps = max(1, int(2.2 * steps_per_second))  # v7.18: 恢复时间 1.5→2.2秒
+        self._celebration_exit_steps = max(1, int(2.5 * steps_per_second))  # v7.18: 恢复时间 1.5→2.2秒
+        
+        # v7.22: 终点特殊处理 - 更宽的检测和锁定窗口，确保一旦到达就会庆祝
+        self._final_goal_celebration_window = 2.0  # Y范围：30→34（宽2m，确保到达后就锁定）
         
         # 庆祝预设姿势：前腿抬起+后腿下蹲（类似宇树Go1跪姿抬手）
         # 关节顺序: FR_hip, FR_thigh, FR_calf, FL_hip, FL_thigh, FL_calf,
@@ -194,15 +183,15 @@ class VBotSection01Env(NpEnv):
         waypoints.append([-3.0, 0.1])   # wp0: START
         waypoints.extend([[0.0, 0.1], [3.0, 0.1]])  # wp1-2: 笑脸中→右
         waypoints.extend([[3.0, 4.1], [0.0, 4.1], [-3.0, 4.1]])  # wp3-5: 红包右→中→左（wp5开始减速到2026）
-        waypoints.append([-3.0, 7.7])   # wp6: 2026平台（里程碑1，官方Y=7.2~8.2）
+        waypoints.append([-1.5, 8.0])   # wp6: 2026平台（里程碑1，官方Y=7.2~8.2）
         
         # === 阶段2：Section012（楼梯+吊桥）===
         waypoints.append([-3.0, 12.0])  # wp7: 左侧楼梯口
         waypoints.append([-3.0, 13.0])  # wp8: 上楼梯Step1
         waypoints.append([-3.0, 14.0])  # wp9: 上楼梯Step2
         waypoints.append([-3.0, 15.0])  # wp10: 上楼梯Step3
-        waypoints.append([-3.0, 16.5])  # wp11: 上楼梯Step4
-        waypoints.append([-3.0, 18.1])  # wp12: 吊桥拜年红包（之后开始半速）
+        waypoints.append([-3.0, 16.0])  # wp11: 上楼梯Step4
+        waypoints.append([-3.0, 18.0])  # wp12: 吊桥拜年红包（之后开始半速）
         waypoints.append([-3.0, 21.0])  # wp13: 准备下楼梯
         waypoints.append([-3.0, 22.0])  # wp14: 下楼梯过渡
         waypoints.append([-3.0, 23.0])  # wp15: 丙午平台入口过渡
@@ -212,7 +201,7 @@ class VBotSection01Env(NpEnv):
         waypoints.append([0.1, 23.0])   # wp17: 反向楼梯1
         waypoints.append([0.3, 22.0])   # wp18: 反向楼梯2
         waypoints.append([0.4, 21.0])   # wp19: 反向楼梯3（v7.18: 20→21）
-        waypoints.append([0.5, 21.0])   # wp20: 反向楼梯出口（v7.18新增）
+        waypoints.append([0.5, 20.0])   # wp20: 反向楼梯出口（v7.18新增）
         
         # === 阶段3：Section013（河床×6+滚球+不规则地形）===
         # 半速区域：wp12(吊桥)之后 ~ wp28(滚球)之前
@@ -225,9 +214,8 @@ class VBotSection01Env(NpEnv):
         waypoints.append([3.5, 19.5])   # wp27: 河床红包5
         waypoints.append([2.0, 23.5])   # wp28: 新增过渡点
         
-        # 结束半速区域，恢复正常速度
-        waypoints.append([0.0, 25.5])   # wp29: 滚动球区域
-        waypoints.append([3.0, 26.2])   # wp30: 横向移动确保碰球
+        waypoints.append([0.0, 25.0])   # wp29: 滚动球区域
+        waypoints.append([1.0, 26.0])   # wp30: 横向移动确保碰球
         waypoints.append([0.0, 32.0])   # wp31: 最终终点（里程碑3）
         
         self._hardcoded_waypoints = np.array(waypoints, dtype=np.float32)
@@ -431,16 +419,21 @@ class VBotSection01Env(NpEnv):
         # 下楼梯区：wp13~wp15
         in_stairs_up = (wp_idx >= 8) & (wp_idx <= 10)
         in_stairs_down = (wp_idx >= 13) & (wp_idx <= 15)
+        in_reverse_stairs_up = (wp_idx >= 17) & (wp_idx <= 19)
 
         if np.any(in_stairs_up):
+            # 上楼梯：增强后腿力量，但考虑新的力矩限制
             # 后腿: RR(6,7,8), RL(9,10,11)
-            torques[np.ix_(in_stairs_up, [6, 7, 8, 9, 10, 11])] *= 1.15
+            torques[np.ix_(in_stairs_up, [6, 7, 8, 9, 10, 11])] *= 1.15  # 降低倍数：1.2→1.15，适应新的力矩限制
         if np.any(in_stairs_down):
-            torques[in_stairs_down] *= 0.9
-        
-        # 限制力矩范围（与XML中的forcerange一致）
-        # hip/thigh: ±17 N·m, calf: ±34 N·m
-        torque_limits = np.array([17, 17, 34] * 4, dtype=np.float32)  # FR, FL, RR, RL
+            # 下楼梯：适度降低力矩，避免过度发力导致失衡
+            torques[in_stairs_down] *= 0.85  # 轻微提高：0.8→0.85，保持稳定性
+        if np.any(in_reverse_stairs_up):
+            torques[in_reverse_stairs_up] *= 1.05  # 进一步降低：1.1→1.05，配合新的力矩限制
+
+        # 限制力矩范围（更合理的力矩限制，减少卡腿风险）
+        # hip/thigh: ±15 N·m, calf: ±30 N·m（降低力矩，避免过度发力导致卡腿）
+        torque_limits = np.array([16.5, 16.5, 33.5] * 4, dtype=np.float32)  # FR, FL, RR, RL
         torques = np.clip(torques, -torque_limits, torque_limits)
         
         return torques
@@ -448,25 +441,27 @@ class VBotSection01Env(NpEnv):
     def _compute_target_speed(self, wp_idx):
         """计算地形自适应目标速度"""
         # 波浪/坑洼地形：wp0~wp2
-        # 2026平台前减速区：wp5~wp6
+        # 2026平台前减速区：wp5~wp6（v7.21修正：wp5保持正常速度，wp6减速到2026）
         # 上楼梯区：wp7~wp11
         # 下楼梯/吊桥区：wp13~wp15
         in_wave_terrain = (wp_idx >= 0) & (wp_idx <= 2)
-        in_approach_2026 = (wp_idx >= 5) & (wp_idx <= 6)
+        in_approach_2026 = wp_idx == 5  # wp5保持正常速度（1.0 m/s）
+        in_near_2026 = wp_idx == 6  # wp6减速到0.35，为2026平台做准备
         in_stairs_up = (wp_idx >= 8) & (wp_idx <= 10)
-        in_bridge = (wp_idx >= 10) & (wp_idx <= 13)
+        in_bridge = (wp_idx >= 11) & (wp_idx <= 13)  # v7.20: 吊桥范围微调 10→11，wp10是楼梯顶不是吊桥
         in_stairs_down = (wp_idx >= 13) & (wp_idx <= 15)
         in_reverse_stairs_up = (wp_idx >= 17) & (wp_idx <= 19)
         in_riverbed = (wp_idx >= 20) & (wp_idx <= 27)
 
         return np.where(
             in_stairs_down, 0.10,
-            np.where(in_stairs_up, 0.5,
-            np.where(in_reverse_stairs_up, 0.5,
-            np.where(in_riverbed, 0.6,
+            np.where(in_stairs_up, 0.55,
+            np.where(in_reverse_stairs_up, 0.55,
+            np.where(in_riverbed, 0.65,
             np.where(in_bridge, 0.10,
-            np.where(in_approach_2026, 0.18,
-            np.where(in_wave_terrain, 1.1, 1.0)))))))
+            np.where(in_near_2026, 0.20,  # v7.21: wp6减速 0.20→0.35，配合3m强制减速平滑到达
+            np.where(in_approach_2026, 1.0,  # v7.21: wp5恢复正常速度 0.50→1.0，与wp4保持一致
+            np.where(in_wave_terrain, 1.15, 1.0))))))))
 
     def _compute_projected_gravity(self, root_quat: np.ndarray) -> np.ndarray:
         """计算机器人坐标系中的重力向量"""
@@ -661,6 +656,9 @@ class VBotSection01Env(NpEnv):
                 state.info["hardcoded_waypoint_idx"] + reached_wp_for_advance.astype(np.int32),
                 max_wp_idx
             )
+            
+            # 更新训练前沿（课程学习需要）
+            self._global_max_wp = max(self._global_max_wp, int(np.max(state.info["hardcoded_waypoint_idx"])))
 
             next_waypoints = self._hardcoded_waypoints[np.minimum(
                 state.info["hardcoded_waypoint_idx"],
@@ -687,7 +685,7 @@ class VBotSection01Env(NpEnv):
         heading_diff = np.where(heading_diff < -np.pi, heading_diff + 2*np.pi, heading_diff)
         
         # 达到判定（只看位置，与奖励计算保持一致）
-        position_threshold = 0.3
+        position_threshold = 0.25
         reached_all = distance_to_target < position_threshold  # 楼梯任务：只要到达位置即可
         
         # 计算地形自适应目标速度
@@ -802,15 +800,23 @@ class VBotSection01Env(NpEnv):
                 desired_vel_xy[celebration_active, :] *= decel_alpha[:, np.newaxis]
                 desired_yaw_rate[celebration_active] *= decel_alpha
 
-            # 接近平台时减速（防止冲出平台）
+            # v7.21: 渐进式接近平台减速（防止冲出平台，保持爬坡动力）
+            # 扩大减速范围 3m→5m，确保wp5就开始减速（wp5→wp6距离4.18m）
+            # 分段减速：5-3m减到0.6倍，<3m减到0.35倍
             dist_to_milestone = np.sqrt((robot_x - self._milestone_positions[milestone_names.index(milestone_name), 0])**2 + (robot_y - milestone_y)**2)
-            approaching_milestone = on_milestone_wp & (~celebration_active) & (~state.info[done_key]) & (dist_to_milestone < 3.0)
+            approaching_milestone = on_milestone_wp & (~celebration_active) & (~state.info[done_key]) & (dist_to_milestone < 5.0)
             if np.any(approaching_milestone):
                 speed_limit = np.linalg.norm(desired_vel_xy[approaching_milestone, :], axis=1, keepdims=True)
+                # 渐进式减速：远距离保持动力（0.6），近距离刹车（0.35）
+                decel_ratio = np.where(
+                    dist_to_milestone[approaching_milestone] < 3.0,
+                    0.20,  # <3m: 接近平台，强力刹车
+                    0.40   # 3-5m: 开始减速，但保持爬坡动力
+                )[:, np.newaxis]
                 desired_vel_xy[approaching_milestone, :] = (
-                    desired_vel_xy[approaching_milestone, :] / np.maximum(speed_limit, 1e-6) * 0.25
+                    desired_vel_xy[approaching_milestone, :] / np.maximum(speed_limit, 1e-6) * decel_ratio
                 )
-                desired_yaw_rate[approaching_milestone] = desired_yaw_rate[approaching_milestone] * 0.3
+                desired_yaw_rate[approaching_milestone] = desired_yaw_rate[approaching_milestone] * 0.5
 
             # 庆祝完成判定：姿势阶段保持够1.5秒
             pose_complete = in_pose & (state.info[pose_key] >= self._celebration_pose_steps)
@@ -882,47 +888,6 @@ class VBotSection01Env(NpEnv):
         info = terminated_state.info
         
         # ========== 关键指标统计（用于训练诊断） ==========
-        self.navigation_stats_step += 1
-        robot_y = root_pos[:, 1]
-        avg_y = np.mean(robot_y)
-        avg_reward = np.mean(reward)
-        
-        # 最远waypoint统计 + 更新全局前沿
-        current_wp_idx = info.get("hardcoded_waypoint_idx", np.zeros(data.shape[0], dtype=np.int32))
-        max_wp_reached = np.max(current_wp_idx)
-        self._global_max_wp = max(self._global_max_wp, int(max_wp_reached))  # 更新训练前沿
-        
-        # 楼梯通过率（到达 wp13 或更高，上楼梯+吊桥完成）
-        current_wp_idx = info.get("hardcoded_waypoint_idx", np.zeros(data.shape[0], dtype=np.int32))
-        stair_pass_ratio = np.mean(current_wp_idx >= 13)
-        
-        # 下楼梯完成率（到达 wp16 或更高，稳定到达丙午平台）
-        descent_pass_ratio = np.mean(current_wp_idx >= 16)
-        
-        # 卡住比例
-        stuck_ratio = np.mean(info.get("stuck_counter", np.zeros(data.shape[0], dtype=np.int32)) > 100)
-        
-        # 添加到窗口
-        if len(self.metric_window['robot_y']) < self.metric_window_size:
-            self.metric_window['robot_y'].append(avg_y)
-            self.metric_window['rewards'].append(avg_reward)
-            self.metric_window['stair_pass'].append(stair_pass_ratio)
-            self.metric_window['descent_pass'].append(descent_pass_ratio)
-            self.metric_window['stuck_ratio'].append(stuck_ratio)
-            self.metric_window['max_waypoint'].append(max_wp_reached)
-        else:
-            # 滑动窗口
-            self.metric_window['robot_y'] = self.metric_window['robot_y'][1:] + [avg_y]
-            self.metric_window['rewards'] = self.metric_window['rewards'][1:] + [avg_reward]
-            self.metric_window['stair_pass'] = self.metric_window['stair_pass'][1:] + [stair_pass_ratio]
-            self.metric_window['descent_pass'] = self.metric_window['descent_pass'][1:] + [descent_pass_ratio]
-            self.metric_window['stuck_ratio'] = self.metric_window['stuck_ratio'][1:] + [stuck_ratio]
-            self.metric_window['max_waypoint'] = self.metric_window['max_waypoint'][1:] + [max_wp_reached]
-        
-        # 每1000步打印一次诊断信息
-        if self.navigation_stats_step % 500 == 0:
-            self._print_training_metrics()
-        
         state.obs = obs
         state.reward = reward
         state.terminated = terminated
@@ -936,7 +901,7 @@ class VBotSection01Env(NpEnv):
         1. IMU侧翻检测: |Roll|>60° 或 |Pitch|>60° (替代旧版gravity_z检测)
         2. 超出边界 (Y>各阶段设定 或 Y<-3.5掉下悬崖)
         3. 物理发散 (NaN检测)
-        4. 卡住不动 (连续450步速度<0.05且未到达终点)
+        4. 卡住不动 (连续一定步数速度<0.05)
         """
         data = state.data
         info = state.info
@@ -977,115 +942,29 @@ class VBotSection01Env(NpEnv):
                 is_celebrating |= info[start_key]
         info["stuck_counter"] = np.where(is_celebrating, 0, info["stuck_counter"])
         
-        # 获取当前waypoint索引，为wp27圆盘石头区域增加更多尝试机会
+        # 获取当前waypoint索引，为困难区域增加更多尝试机会
         current_wp_idx = info.get("hardcoded_waypoint_idx", np.zeros(root_pos.shape[0], dtype=np.int32))
         in_disc_area = (current_wp_idx >= 21) & (current_wp_idx <= 28)  # wp21-28区域（圆盘石头区）
+        # v7.20: 吊桥区域(wp10-13)也需要更长的卡住容忍
+        in_bridge_area = (current_wp_idx >= 10) & (current_wp_idx <= 13)
         
-        # 设置不同的卡住阈值：普通区域480步，圆盘石头区650步
-        stuck_threshold = np.where(in_disc_area, 650, 480)
+        # v7.20: 设置不同的卡住阈值
+        # - 普通区域: 480步
+        # - 吊桥区域: 650步（吊桥晃动需要更多时间稳定）
+        # - 圆盘石头区: 700步
+        stuck_threshold = np.where(
+            in_disc_area, 700,
+            np.where(in_bridge_area, 650, 480)
+        )
         
-        # 卡住超过阈值且未到达终点就终止
-        reached_goal = root_pos[:, 1] >= self.goal_y
+        # 卡住超过阈值就终止（简化逻辑，不再特殊处理终点）
         stuck_terminated = info["stuck_counter"] > stuck_threshold
-        # 到达终点后不因卡住终止，让机器人保持庆祝动作
-        stuck_terminated = stuck_terminated & (~reached_goal)
         
         # 合并所有终止条件
-        # 到达终点后只因为侧翻、超出边界或物理发散而终止
         terminated = tilt_terminated | boundary_terminated | nan_terminated | stuck_terminated
-        
+        state.terminated = terminated
         return state.replace(terminated=terminated, info=info)
-    
-    def _print_training_metrics(self):
-        """打印训练诊断指标"""
-        import sys
         
-        if len(self.metric_window['robot_y']) == 0:
-            return
-        
-        avg_y = np.mean(self.metric_window['robot_y'])
-        avg_reward = np.mean(self.metric_window['rewards'])
-        avg_stair = np.mean(self.metric_window['stair_pass'])
-        avg_stuck = np.mean(self.metric_window['stuck_ratio'])
-        max_wp = int(np.max(self.metric_window['max_waypoint']))
-        
-        # 计算改进速度
-        y_improve = 0
-        reward_improve = 0
-        if len(self.metric_window['robot_y']) > 500:
-            y_improve = (np.mean(self.metric_window['robot_y'][-250:]) - 
-                         np.mean(self.metric_window['robot_y'][:250])) / 250
-            reward_improve = (np.mean(self.metric_window['rewards'][-250:]) - 
-                             np.mean(self.metric_window['rewards'][:250])) / 250
-        
-        # 格式化输出
-        print("\n" + "="*90, file=sys.stderr)
-        print(f"📊【训练进度】步数: {self.navigation_stats_step:,}  课程前沿: wp{self._global_max_wp}", file=sys.stderr)
-        print("="*90, file=sys.stderr)
-        
-        total_wp = len(self._hardcoded_waypoints)  # v7.9: 动态获取waypoint总数
-        print(f"【航点】最远达到: wp{max_wp}/{total_wp} ({max_wp/total_wp*100:.1f}%)  课程出生偏重: wp{max(0,self._global_max_wp-3)}~wp{min(total_wp-1,self._global_max_wp+3)}", file=sys.stderr)
-        if max_wp >= total_wp:
-            print("       ✅ 完成全程", file=sys.stderr)
-        elif max_wp >= 17:  # v7.9: 调整里程碑判断(16=丙午平台)
-            print("       ✅ 已过楼梯", file=sys.stderr)
-        elif max_wp >= 8:
-            print("       ⚠️  进入楼梯", file=sys.stderr)
-        elif max_wp >= 7:
-            print("       ⚠️  到达2026平台", file=sys.stderr)
-        else:
-            print("       ❌ 尚在坑洼区", file=sys.stderr)
-        
-        print(f"【进度】avg_y={avg_y:.2f}m  增速={y_improve:.4f}m/step", file=sys.stderr)
-        if y_improve > 0.002:
-            print("       ✅ 快速进步（机器人越走越远）", file=sys.stderr)
-        elif y_improve > 0.0005:
-            print("       ⚠️  缓慢进步（在学习但提升不大）", file=sys.stderr)
-        else:
-            print("       ❌ 停滞（机器人没有走得更远）", file=sys.stderr)
-        
-        print(f"【奖励】avg={avg_reward:.2f}分  改进={reward_improve:.4f}/step", file=sys.stderr)
-        print(f"        ↳ 奖励=每步综合得分，含速度跟踪+前进+waypoint等", file=sys.stderr)
-        if avg_reward > 50:
-            print("       ✅ 学得好（每步综合得分高，策略有效）", file=sys.stderr)
-        elif avg_reward > 10:
-            print("       ⚠️  在学（有正向奖励，策略在摸索中）", file=sys.stderr)
-        elif avg_reward > 0:
-            print("       ⚠️  微弱学习（正奖励很少，可能在摔倒/卡住）", file=sys.stderr)
-        else:
-            print("       ❌ 无学习信号（总奖励为负=惩罚>奖励，策略还在乱走）", file=sys.stderr)
-        
-        print(f"【楼梯】上楼+吊桥(wp≥13)={avg_stair*100:.1f}%", file=sys.stderr)
-        if avg_stair > 0.8:
-            print("       ✅ 完全掌握", file=sys.stderr)
-        elif avg_stair > 0.5:
-            print("       ⚠️  基本通过", file=sys.stderr)
-        elif avg_stair > 0.2:
-            print("       ⚠️  部分通过", file=sys.stderr)
-        else:
-            print("       ❌ 卡住", file=sys.stderr)
-        
-        avg_descent = np.mean(self.metric_window['descent_pass'])
-        print(f"【下楼】下楼梯→丙午(wp≥16)={avg_descent*100:.1f}%", file=sys.stderr)
-        if avg_descent > 0.6:
-            print("       ✅ 稳定下楼", file=sys.stderr)
-        elif avg_descent > 0.3:
-            print("       ⚠️  部分成功", file=sys.stderr)
-        elif avg_descent > 0.1:
-            print("       ⚠️  偶尔成功", file=sys.stderr)
-        else:
-            print("       ❌ 下楼困难", file=sys.stderr)
-        
-        print(f"【卡住】卡住比例={avg_stuck*100:.1f}%", file=sys.stderr)
-        if avg_stuck < 0.1:
-            print("       ✅ 很少卡住", file=sys.stderr)
-        elif avg_stuck < 0.3:
-            print("       ⚠️  有时卡住", file=sys.stderr)
-        else:
-            print("       ❌ 经常卡住", file=sys.stderr)
-        
-        print("="*90 + "\n", file=sys.stderr)
-    
     def _compute_reward(self, data: mtx.SceneData, info: dict, velocity_commands: np.ndarray) -> np.ndarray:
          
         """
@@ -1130,7 +1009,7 @@ class VBotSection01Env(NpEnv):
         in_wave_terrain = (wp_idx >= 0) & (wp_idx <= 2)
         in_approach_2026 = (wp_idx >= 5) & (wp_idx <= 6)
         in_stairs_up = (wp_idx >= 8) & (wp_idx <= 10)
-        in_bridge = (wp_idx >= 10) & (wp_idx <= 13)
+        in_bridge = (wp_idx >= 11) & (wp_idx <= 13)  # v7.20: 吊桥范围微调 10→11
         in_stairs_down = (wp_idx >= 13) & (wp_idx <= 15)
         in_reverse_stairs_up = (wp_idx >= 17) & (wp_idx <= 19)
         in_riverbed = (wp_idx >= 20) & (wp_idx <= 27)
@@ -1153,7 +1032,7 @@ class VBotSection01Env(NpEnv):
         front_leg_forces = np.sum(actuator_forces[:, 0:6], axis=1)  # FR+FL
         rear_leg_forces = np.sum(actuator_forces[:, 6:12], axis=1) # RR+RL
         # 增加靠近平台的区域：wp5-6和wp15-17
-        in_approach_platform = (wp_idx >= 5) & (wp_idx <= 6) | (wp_idx >= 15) & (wp_idx <= 17)
+        in_approach_platform = (wp_idx == 6) | ((wp_idx >= 15) & (wp_idx <= 17))    
         braking = (in_stairs_down | in_approach_platform | in_riverbed | (speed < 0.6))
         rear_off_ground = (rear_leg_forces < 5.0)
         front_brake = (front_leg_forces > 8.0)
@@ -1168,7 +1047,7 @@ class VBotSection01Env(NpEnv):
                                  0)
 
         # 持续刹车奖励
-        sustained_brake_reward = np.where(info["braking_steps"] > 3, 0.5, 0.0)
+        sustained_brake_reward = np.where(info["braking_steps"] > 3, 0.20, 0.0)
         reward += sustained_brake_reward
         
         # 1. 质心高度稳定性奖励（波浪地形关键）
@@ -1182,8 +1061,8 @@ class VBotSection01Env(NpEnv):
         in_critical_areas = in_wave_terrain | ((wp_idx >= 6) & (wp_idx <= 7)) | ((wp_idx >= 30) & (wp_idx <= 31))
         z_stability_reward = np.where(
             in_critical_areas,
-            0.03 * np.exp(-5.0 * z_change),  # 关键区域：高度变化越小奖励越高
-            0.01 * np.exp(-3.0 * z_change)   # 其他地形：较低权重
+            0.05 * np.exp(-5.0 * z_change),  # v7.22: 稳定性奖励增强 0.03→0.05
+            0.02 * np.exp(-3.0 * z_change)   # v7.22: 其他地形稳定性奖励 0.01→0.02
         )
         reward += z_stability_reward
         info["prev_robot_z"] = robot_z.copy()
@@ -1222,7 +1101,6 @@ class VBotSection01Env(NpEnv):
         # 问题1: 凹陷尺寸比例差异 → 根据质心高度变化判断凹陷深度
         # 问题2: 边缘悬崖效应 → 监控质心高度急剧下降
         # 问题3: 过渡段步态切换 → 平滑关节速度变化
-        
         if in_riverbed.any():
             # 1. 凹陷边缘检测奖励（避免足端悬空）
             # 质心高度急剧下降(>0.1m/step)表示可能踩空边缘
@@ -1233,21 +1111,25 @@ class VBotSection01Env(NpEnv):
                 0.0
             )
             reward += edge_penalty
-            
-            # 2. 步态切换平滑奖励（减少绊倒/卡顿）
-            # 监控关节速度变化率（角加速度）
+        # 获取关节速度变化率（角加速度）
             joint_vel = self.get_dof_vel(data)  # [num_envs, 12]
             if "prev_joint_vel" not in info:
                 info["prev_joint_vel"] = joint_vel.copy()
             joint_accel = joint_vel - info["prev_joint_vel"]
             joint_jerk = np.sum(joint_accel**2, axis=1)  # 关节加速度平方和
-            
-            # 河床区域奖励平滑步态切换
+        
+            # v7.20: 河床区域和吊桥区域奖励平滑步态切换（减少卡脚）
+            # 吊桥需要特别强调步态稳定性
+            gait_areas = in_riverbed | in_bridge
             gait_smooth_reward = np.where(
-                in_riverbed,
-                0.2 * np.exp(-0.5 * joint_jerk),  # 关节变化越平滑奖励越高
-                0.0
-            )
+                gait_areas,
+                0.35 * np.exp(-0.4 * joint_jerk),  # v7.20: 吊桥特别增强 0.2→0.35
+                np.where(
+                    in_riverbed,
+                    0.2 * np.exp(-0.5 * joint_jerk),  # 河床保持原有权重
+                    0.0
+                )
+            )  
             reward += gait_smooth_reward
             info["prev_joint_vel"] = joint_vel.copy()
             
@@ -1272,14 +1154,15 @@ class VBotSection01Env(NpEnv):
         forward_progress = np.clip(vel_toward_goal, -0.5, 1.5)
         
         # 地形自适应前进奖励倍数
-        # 上楼梯：高奖励鼓励前进(1.8x)
-        # 下楼梯/吊桥：低倍数避免冲太快(0.8x)
-        # 接近2026平台：减速接近(0.9x)
+        # 上楼梯：高奖励鼓励前进(2.0x)
+        # 下楼梯/吊桥：低倍数避免冲太快(0.60x)
+        # 接近2026平台：降低前进奖励(0.80x)，让速度跟踪主导，避免接近平台时加速
         # 其他：正常(1.2x)
         terrain_forward_bonus = np.where(
-            in_stairs_up, 1.9,
+            in_stairs_up, 2.0,
             np.where(in_stairs_down, 0.60,
-            np.where(in_approach_2026, 0.9, 1.2))
+            np.where(in_approach_2026, 0.82,  # v7.21: 降低前进奖励 1.15→0.80，配合减速逻辑
+            1.2))
         )
         reward += terrain_forward_bonus * forward_progress
         
@@ -1349,73 +1232,80 @@ class VBotSection01Env(NpEnv):
         gravity_z = projected_gravity[:, 2]  # 正常站立时≈-1，完全倒下时≈0
         # tilt_angle ≈ arccos(-gravity_z)：0°=站直，90°=侧翻
         tilt_cos = np.clip(-gravity_z, 0.0, 1.0)  # 0=倒下, 1=站直
-        # 45°以内无惩罚，45-60°渐进惩罚，60°以上终止(Roll/Pitch检测)
         
-        # v7.14: 软倾斜惩罚阈值降低45°→35°（cos35°≈0.82），增强权重
+        # v7.22: 软倾斜惩罚更严格 - 30°就开始惩罚，斜度每增1°惩罚翻倍
         soft_tilt_penalty = np.where(
-            tilt_cos > 0.82,  # cos(35°)≈0.82, tilt<35°: 无惩罚
+            tilt_cos > 0.87,  # cos(30°)≈0.87, tilt<30°: 无惩罚（更严格）
             0.0,
-            -0.05 * (0.82 - tilt_cos) / 0.82  # 加大惩罚：0.02→0.05
+            -8.0 * (0.87 - tilt_cos) / 0.87  # v7.22: 加大惩罚 5.0→8.0，每步最大-8分
         )
-        # 楼梯段加强稳定性惩罚（倾斜太大就重罚）
+        # v7.22: 直立奖励加倍（倾角越小奖励越高），与软惩罚形成强双向信号
+        upright_stability_reward = 0.24 * np.clip((tilt_cos - 0.75) / 0.25, 0.0, 1.0)  # 0.12→0.24
+        # 楼梯段加强稳定性惩罚（比赛：绝不摔倒）
         in_stairs = in_stairs_up | in_stairs_down
         stair_stability_penalty = np.where(
-            in_stairs & (tilt_cos < 0.6),  # 楼梯上倾斜>50°就重罚
-            -0.2 * (0.6 - tilt_cos),  # 加大惩罚：0.1→0.2
+            in_stairs & (tilt_cos < 0.65),  # v7.22: 楼梯上倾斜>49°就重罚（更严格）
+            -0.5 * (0.65 - tilt_cos),  # v7.22: 加大惩罚 0.2→0.5，每步最大-0.5
             0.0
         )
-        # 下楼梯额外稳定性惩罚（训练显示下楼梯太快容易摔）
+        # 下楼梯额外稳定性惩罚（比赛关键：下楼梯绝不能快）
         descent_speed_penalty = np.where(
             in_stairs_down & (speed > 0.3),  # v7.15: 下楼梯阈值0.6->0.38
-            -0.2 * (speed - 0.3),  # 加大惩罚：0.12→0.2
+            -0.3 * (speed - 0.2),  # 加大惩罚：0.12→1.0
             0.0
         )
-        # 下楼梯超速时更强的倾斜惩罚
+        # 下楼梯超速时更强的倾斜惩罚（防止冲过头摔倒）
         descent_tilt_penalty = np.where(
-            in_stairs_down & (tilt_cos < 0.7),  # 下楼梯倾斜>45°就重罚
-            -0.3 * (0.7 - tilt_cos),  # 加大惩罚：0.15→0.3
+            in_stairs_down & (tilt_cos < 0.75),  # v7.22: 下楼梯倾斜>41°就重罚（更严格）
+            -0.8 * (0.75 - tilt_cos),  # v7.22: 加大惩罚 0.4→0.8，每°≈-0.01分
             0.0
         )
-        reward += soft_tilt_penalty + stair_stability_penalty + descent_speed_penalty + descent_tilt_penalty
+        reward += soft_tilt_penalty + upright_stability_reward + stair_stability_penalty + descent_speed_penalty + descent_tilt_penalty
         
         # === 关节姿态自然性奖励（v7.10） ===
-        # 问题：后腿经常伸得很直（calf接近0而不是-1.8），步态不自然且容易卡腿
-        # 解决：奖励calf关节保持在自然弯曲范围内
+        # 问题1：后腿经常伸得很直（calf接近0而不是-1.8），步态不自然且容易卡腿
+        # 问题2：后腿大腿(thigh)伸得太直导致小腿使不上力气
+        # 问题3：后腿经常向外张开，导致步态不自然
+        # 解决：限制calf、thigh和hip关节在自然范围内
+        
         # 关节索引: 0=FR_hip, 1=FR_thigh, 2=FR_calf, 3=FL_hip, 4=FL_thigh, 5=FL_calf,
         #            6=RR_hip, 7=RR_thigh, 8=RR_calf, 9=RL_hip, 10=RL_thigh, 11=RL_calf
         joint_pos = self.get_dof_pos(data)  # [num_envs, 12]
         
+        # === Calf关节控制 ===
         # calf关节索引: 2, 5, 8, 11
         calf_indices = [2, 5, 8, 11]
         calf_positions = joint_pos[:, calf_indices]  # [num_envs, 4]
         
         # 自然calf位置约-1.8，接近0表示过度伸展
-        # 奖励calf保持在[-2.4, -0.6]范围内（允许一定活动范围）
-        calf_natural_min = -2.4
-        calf_natural_max = -0.6
+        # 奖励calf保持在[-2.2, -1.0]范围内（更自然的活动范围）
+        calf_natural_min = -2.2  # 减少过度弯曲的惩罚范围
+        calf_natural_max = -1.0  # 更严格限制伸直
         
-        # 计算calf过度伸展的惩罚（calf > -0.6表示伸得太直）
-        calf_overextend = np.maximum(calf_positions - calf_natural_max, 0)  # 超过-0.6的部分
-        calf_overextend_penalty = -0.02 * np.sum(calf_overextend, axis=1)  # 每个关节贡献惩罚
+        # 计算calf过度伸展的惩罚（calf > -1.0表示伸得太直）
+        calf_overextend = np.maximum(calf_positions - calf_natural_max, 0)  # 超过-1.0的部分
+        calf_overextend_penalty = -0.06 * np.sum(calf_overextend, axis=1)  # 增强惩罚：0.04→0.06
         
-        # 计算calf过度弯曲的惩罚（calf < -2.4表示弯得太深）
+        # 计算calf过度弯曲的惩罚（calf < -2.2表示弯得太深）
         calf_overbend = np.maximum(calf_natural_min - calf_positions, 0)
-        calf_overbend_penalty = -0.01 * np.sum(calf_overbend, axis=1)
+        calf_overbend_penalty = -0.02 * np.sum(calf_overbend, axis=1)  # 增加弯曲惩罚：0.01→0.02
         
-        # 后腿特别惩罚（后腿更容易伸直）
+        # 后腿calf特别惩罚（后腿更容易伸直）
         rear_calf_positions = joint_pos[:, [8, 11]]  # RR_calf, RL_calf
-        rear_calf_overextend = np.maximum(rear_calf_positions - (-1.2), 0)  # 后腿更严格: -1.2
-        rear_calf_penalty = -0.05 * np.sum(rear_calf_overextend, axis=1)
+        rear_calf_overextend = np.maximum(rear_calf_positions - (-1.4), 0)  # 后腿更严格: -1.4（-1.2→-1.4）
+        rear_calf_penalty = -0.08 * np.sum(rear_calf_overextend, axis=1)  # 增强惩罚：0.05→0.08
         
-        reward += calf_overextend_penalty + calf_overbend_penalty + rear_calf_penalty
-
+  
+        # 合并所有关节惩罚和奖励
+        reward += calf_overextend_penalty + calf_overbend_penalty + rear_calf_penalty 
+        
         # v7.15: 上楼梯后腿接地/发力奖励（缓解“前腿拉、后腿悬空”）
         actuator_forces_abs = np.abs(data.actuator_ctrls)
         rear_leg_effort = np.sum(actuator_forces_abs[:, 6:12], axis=1)
         rear_calf_bent = (joint_pos[:, 8] < -1.0) & (joint_pos[:, 11] < -1.0)
         rear_support_reward = np.where(
             in_stairs_up & rear_calf_bent & (rear_leg_effort > 12.0),
-            0.12,
+            0.20,
             0.0,
         )
         reward += rear_support_reward
@@ -1429,15 +1319,15 @@ class VBotSection01Env(NpEnv):
         # v7.14: 增强姿态平滑权重（稳定性信号需要和前进信号平衡）
         # 角速度越小奖励越高，exp衰减让小角速度获得高奖励
         attitude_smoothness = np.exp(-0.8 * (roll_rate**2 + pitch_rate**2))  # 更陡峭的衰减
-        reward += 0.15 * attitude_smoothness  # v7.14: 0.05→0.15 增强稳定性权重
+        reward += 0.30 * attitude_smoothness  # v7.22: 稳定性奖励增强 0.20→0.30
         
         # 2. 角加速度感知（趋势预测）：惩罚角速度突变
         if "prev_gyro" not in info:
             info["prev_gyro"] = gyro.copy()
         angular_accel = gyro - info["prev_gyro"]  # 角加速度 ≈ Δω/Δt
         angular_jerk = np.sum(angular_accel[:, :2]**2, axis=1)  # Roll+Pitch的角加速度平方和
-        # v7.14: 降低阈值0.1→0.05，增强惩罚0.02→0.08
-        jerk_penalty = -0.08 * np.clip(angular_jerk - 0.05, 0, 1.0)
+        # v7.14: 降低阈值0.1→0.05，增强惩罚0.02→0.15
+        jerk_penalty = -0.10 * np.clip(angular_jerk - 0.05, 0, 1.0)
         reward += jerk_penalty
         info["prev_gyro"] = gyro.copy()
         
@@ -1464,7 +1354,7 @@ class VBotSection01Env(NpEnv):
         fr_asymmetry = np.abs(front_total - rear_total) / (np.abs(front_total + rear_total) + 1e-6)
         
         # v7.14: 对称性奖励（越对称奖励越高）增强权重
-        symmetry_reward = 0.08 * (1.0 - 0.5 * lr_asymmetry - 0.5 * fr_asymmetry)
+        symmetry_reward = 0.24 * (1.0 - 0.5 * lr_asymmetry - 0.5 * fr_asymmetry)  # v7.22: 0.16→0.24
         reward += symmetry_reward
 
         # 3b. 楼梯卡住惩罚（v7.17 重写，替代v7.16通用碰撞检测）
@@ -1483,8 +1373,8 @@ class VBotSection01Env(NpEnv):
         # hip/thigh限制17Nm, calf限制34Nm → 归一化到[0,1]
         torque_limits_vec = np.array([17, 17, 34] * 4, dtype=np.float32)
         torque_saturation = np.mean(np.abs(data.actuator_ctrls) / torque_limits_vec, axis=1)  # [0~1]
-        # 力矩饱和度 > 0.5 表示大力输出却走不动 → 吊桥更容易卡，阈值略降
-        stair_stuck_confirmed = stair_stuck & (torque_saturation > 0.5)
+        # 力矩饱和度 > 0.45 表示大力输出却走不动 → 吊桥更容易卡，阈值略降
+        stair_stuck_confirmed = stair_stuck & (torque_saturation > 0.45)
 
         # 楼梯卡住计数器（渐进惩罚：越卡越重）
         if "stair_stuck_counter" not in info:
@@ -1492,17 +1382,20 @@ class VBotSection01Env(NpEnv):
         info["stair_stuck_counter"] = np.where(
             stair_stuck_confirmed,
             info["stair_stuck_counter"] + 1,
-            np.maximum(info["stair_stuck_counter"] - 5, 0),  # 脱困后快速恢复
+            np.maximum(info["stair_stuck_counter"] - 8, 0),  # v7.20: 脱困后更快恢复 5→8
         )
-        # 渐进惩罚：前30步(0.3秒)无惩罚，之后每步-0.08，上限每步-0.5（吊桥更快惩罚）
+        # v7.20: 渐进惩罚调整
+        # - 前50步(0.5秒)无惩罚（原30步，给更多探索时间）
+        # - 每步惩罚降低 0.12→0.08
+        # - 上限降低 0.6→0.4（减少总惩罚，让vbot有更多尝试机会）
         stair_stuck_steps = info["stair_stuck_counter"].astype(np.float32)
-        stair_stuck_penalty = -np.clip((stair_stuck_steps - 30) * 0.08, 0.0, 0.5)
+        stair_stuck_penalty = -np.clip((stair_stuck_steps - 50) * 0.08, 0.0, 0.4)
         reward += np.where(stair_stuck_confirmed, stair_stuck_penalty, 0.0)
         
         # 3. 卡住时鼓励旋转探索（v7.7: 放松旋转判定，更积极鼓励遇到难点旋转通过）
-        # 当stuck_counter>80步(0.8秒)时，奖励角速度，鼓励转向寻找新路径
+        # v7.21: 提前触发旋转探索，当stuck_counter>50步(0.5秒)时就开始鼓励
         stuck_counter = info.get("stuck_counter", np.zeros(num_envs, dtype=np.int32))
-        is_stuck = stuck_counter > 80  # 降低阈值：100→80步，更早鼓励旋转
+        is_stuck = stuck_counter > 50  # v7.21: 降低阈值 60→50步，更早鼓励旋转
         angular_speed = np.abs(gyro[:, 2])  # 角速度绝对值（转得越快越好）
         rotation_explore_reward = np.where(
             is_stuck,
@@ -1571,6 +1464,19 @@ class VBotSection01Env(NpEnv):
         reward += first_reach_final.astype(np.float32) * final_bonus
         info[goal_reached_key] = info[goal_reached_key] | reached_final_goal
         
+        # v7.22: 终点安全冲刺奖励（Y≥30时鼓励减速和稳定，防止冲过头摔倒）
+        near_goal = robot_y >= 30.0  # 距离终点2m范围内
+        goal_speed_reward = np.where(
+            near_goal & (speed < 0.3),  # 接近终点时速度<0.3才有奖励
+            0.15 * (0.3 - speed),  # 速度越低奖励越高，鼓励制动
+            0.0
+        )
+        goal_stability_reward = np.where(
+            near_goal & (tilt_cos > 0.92),  # Y≥30且直立（tilt<23°）
+            0.20 * (tilt_cos - 0.92),  # 直立度越好奖励越高
+            0.0
+        )
+        reward += goal_speed_reward + goal_stability_reward
         # ========== 5. 多平台庆祝动作检测（预设姿势） ==========
         # 在每个里程碑平台执行预设的“抬前腿蹲坐”姿势
         for milestone_y, milestone_name in zip(milestone_ys, milestone_names):
@@ -1583,8 +1489,11 @@ class VBotSection01Env(NpEnv):
             if pose_key not in info:
                 info[pose_key] = np.zeros(num_envs, dtype=np.int32)
             
-            # 在平台窗口内或已锁存庆祝阶段，都算庆祝进行中
-            at_milestone = self._in_milestone_zone(robot_x, robot_y, milestone_y)
+            # v7.22: 终点庆祝扩大检测窗口 - 从Y≥30就开始锁定庆祝
+            if milestone_name == "milestone_final":
+                at_milestone = robot_y >= 30.0  # 距离终点2m内就自动锁定，确保到达就庆祝
+            else:
+                at_milestone = self._in_milestone_zone(robot_x, robot_y, milestone_y)
             celebration_active = info.get(start_key, np.zeros(num_envs, dtype=bool))
             active_or_on_platform = at_milestone | celebration_active
             
@@ -1609,17 +1518,26 @@ class VBotSection01Env(NpEnv):
         
         # ========== 6. 稳定性惩罚 ==========
         # v7.1: 移除角速度惩罚——大步快跑时陀螺仪值大是正常的
-        # 已有倾斜检测(>70°终止)防止摔倒，不需要额外惩罚角速度
+        # 已有倾斜检测(>65°终止)防止摔倒，不需要额外惩罚角速度
         
-        # 终止惩罚（使用Roll/Pitch检测，与_compute_terminated保持一致）
+        # v7.22: 硬终止惩罚（比赛：摔倒就是失败），极严重罚
         roll, pitch = self._compute_roll_pitch_from_quat(root_quat)
-        roll_pitch_threshold = np.deg2rad(self.tilt_threshold_deg)  # 使用配置的侧翻阈值
+        roll_pitch_threshold = np.deg2rad(self.tilt_threshold_deg)  # 使用配置的侧翻阈值65°
         tilt_terminated = (np.abs(roll) > roll_pitch_threshold) | (np.abs(pitch) > roll_pitch_threshold)
-        reward += tilt_terminated.astype(np.float32) * (-60.0)  # 加大惩罚：30→60
+        reward += tilt_terminated.astype(np.float32) * (-200.0)  # v7.22: 摔倒惩罚极重 -120→-200，远强于其他负奖励
         
         # 后退掉落惩罚（Y<-3.5掉下悬崖，与终止条件一致）
         y_fall = robot_y < -3.5
         reward += y_fall.astype(np.float32) * (-30.0)
+        
+        # v7.21: 卡住终止惩罚（加重到-60，与摔倒类似，鼓励vbot保持移动或旋转解脱）
+        stuck_counter = info.get("stuck_counter", np.zeros(num_envs, dtype=np.int32))
+        # 获取当前区域的卡住阈值
+        in_disc_area = (wp_idx >= 21) & (wp_idx <= 28)
+        in_bridge_area = (wp_idx >= 10) & (wp_idx <= 13)
+        stuck_threshold = np.where(in_disc_area, 700, np.where(in_bridge_area, 700, 480))  # v7.21: 桥上阈值 650→550
+        stuck_terminated = stuck_counter > stuck_threshold
+        reward += stuck_terminated.astype(np.float32) * (-70.0)  # v7.21: 卡住惩罚加重 -40→-70
         
         return reward
     def reset(self, data: mtx.SceneData, done: np.ndarray = None) -> tuple[np.ndarray, dict]:

@@ -14,22 +14,22 @@
 # ==============================================================================
 
 """
-VBot 平地导航- MotrixArena_S1_section011_56
-=======================================================
+VBot 平地导航环境 - MotrixArena_S1_section001_56
+====================================================
 
-设计目标：
-1. 从外围环形出生区移动到中心点
-2. 到达后必须完全停止
-3. 不倒地
+任务目标：
+1. 从外围环形出生区移动到中心目标点
+2. 到达后尽快稳定停住
+3. 全程避免摔倒与数值发散
 
-核心创新：状态切换型奖励函数 (Phase-Based Rewards)
-- Phase 1 (移动中 Distance > 0.5m): 鼓励接近、朝向对齐、正向移动
-- Phase 2 (已到达 Distance < 0.5m): 强力奖励停止，防止离开
+奖励设计：Phase-Based（阶段切换）
+- Phase 1（未到达）：鼓励“朝目标移动 + 朝向对齐 + 速度跟踪”
+- Phase 2（已到达）：鼓励“低速稳定站立 + 抑制抖动 + 防倾斜”
 
-数值稳定性：
-- 所有四元数操作都有归一化检查
-- NaN/Inf 提前检测与修复  
-- 边界检测防止物理发散
+数值稳定策略：
+- 统一进行四元数有效性/归一化处理
+- 对 NaN / Inf 做防护替换
+- 保留发散与越界终止条件
 """
 
 import numpy as np
@@ -44,7 +44,11 @@ from .cfg import VBotSection001EnvCfg
 
 @registry.env("MotrixArena_S1_section001_56", "np")
 class VBotSection001Env(NpEnv):
-    """简化版导航环境 - Phase-Based Reward System"""
+    """Section001 导航环境。
+
+    该环境围绕“接近目标 + 稳定停住 + 不摔倒”构建，
+    采用分阶段奖励，兼顾可学习性与最终表现稳定性。
+    """
     
     _cfg: VBotSection001EnvCfg
     
@@ -218,6 +222,13 @@ class VBotSection001Env(NpEnv):
         return sanitized
     
     def apply_action(self, actions: np.ndarray, state: NpEnvState):
+        """执行动作并进行轻量动作滤波。
+
+        作用：
+        1. 裁剪非法动作输入，防止异常值传入控制器。
+        2. 使用一阶低通滤波降低瞬时抖动，提升步态稳定性。
+        3. 计算PD力矩并写入 `actuator_ctrls`。
+        """
         actions = np.clip(actions, -1.0, 1.0)
         actions = np.nan_to_num(actions, nan=0.0, posinf=0.0, neginf=0.0)
         
@@ -238,6 +249,7 @@ class VBotSection001Env(NpEnv):
         return state
     
     def _compute_torques(self, actions, data):
+        """将归一化动作映射到关节目标位，并通过PD控制输出力矩。"""
         action_scaled = actions * self._cfg.control_config.action_scale
         target_pos = self.default_angles + action_scaled
         
@@ -260,6 +272,10 @@ class VBotSection001Env(NpEnv):
         return torques
     
     def _update_target_marker(self, data, pose_commands):
+        """更新目标标记的可视化位置。
+
+        注意：该函数只用于可视化，不影响奖励与终止逻辑。
+        """
         num_envs = data.shape[0]
         all_dof_pos = self._sanitize_dof_pos(data.dof_pos.copy())
         
@@ -274,6 +290,7 @@ class VBotSection001Env(NpEnv):
         self._model.forward_kinematic(data)
     
     def _update_heading_arrows(self, data, robot_pos, desired_vel_xy, base_lin_vel_xy):
+        """更新当前方向箭头与期望方向箭头（可视化辅助）。"""
         if self._robot_arrow_body is None:
             return
         
@@ -305,7 +322,14 @@ class VBotSection001Env(NpEnv):
         self._model.forward_kinematic(data)
     
     def update_state(self, state: NpEnvState) -> NpEnvState:
-        """状态更新：包含观测、奖励、终止条件计算"""
+        """主状态更新流程。
+
+        执行顺序：
+        1. 读取机器人状态并构造导航误差
+        2. 生成期望速度命令并拼接观测
+        3. 更新可视化标记
+        4. 计算奖励与终止条件
+        """
         data = state.data
         cfg = self._cfg
         
@@ -328,7 +352,7 @@ class VBotSection001Env(NpEnv):
         position_error = target_position - robot_position
         distance_to_target = np.linalg.norm(position_error, axis=1)
         
-        # 关键判定：已到达 (Phase判定)
+        # 关键判定：已到达（Phase切换门槛）
         reached_threshold = 0.5  # 50cm
         reached = distance_to_target < reached_threshold
         
@@ -384,7 +408,7 @@ class VBotSection001Env(NpEnv):
         self._update_target_marker(data, pose_commands)
         self._update_heading_arrows(data, root_pos, desired_vel_xy, base_lin_vel[:, :2])
         
-        # 计算奖励 (核心: 两阶段奖励系统)
+        # 计算奖励（核心：两阶段奖励系统）
         reward = self._compute_reward(
             data, state.info, distance_to_target, reached, 
             base_lin_vel, gyro, projected_gravity, position_error
@@ -406,8 +430,10 @@ class VBotSection001Env(NpEnv):
         【重构】基于anymal_c的速度跟踪 + 导航专用奖励
         ============================================================
         
-        核心改变：移除过度的平滑性惩罚（dof_acc_penalty, action_rate_penalty, dof_vel_penalty）
-        这些惩罚太强，导致机器人学会不动。
+        设计思路：
+        - 先确保“会走到目标”（跟踪/接近/朝向）
+        - 再确保“到点后稳定停住”（stop_bonus + 姿态稳定）
+        - 同时通过倾斜预警和终止惩罚防止摔倒
         
         新结构（参考anymal_c）：
           1. 线速度跟踪奖励：鼓励跟踪期望速度
@@ -433,13 +459,13 @@ class VBotSection001Env(NpEnv):
             np.zeros_like(position_error)  # 到达后不需要速度
         )
         
-        # ===== 1. 线速度跟踪奖励（基础步态） =====
+        # ===== 1. 线速度跟踪奖励（基础步态学习） =====
         # 公式：exp(-||v_actual - v_desired||² / 0.25)
         lin_vel_error = np.sum(np.square(base_lin_vel[:, :2] - desired_vel_xy), axis=1)
         tracking_lin_vel = np.exp(-lin_vel_error / 0.25)
         
         # ===== 2. 角速度跟踪奖励（转向能力） =====
-        # 朝向目标点的偏航控制：转向学习慢时，给更直接的角速度目标
+        # 依据“目标方向误差”构建期望偏航速度
         robot_heading = self._get_heading_from_quat(root_quat)
         desired_heading = np.arctan2(position_error[:, 1], position_error[:, 0])
         heading_error = self._wrap_angle(desired_heading - robot_heading)
@@ -451,8 +477,8 @@ class VBotSection001Env(NpEnv):
         heading_align_reward = np.exp(-np.square(heading_error / 0.6))
         heading_align_reward = np.where(reached, 0.0, heading_align_reward)
         
-        # ===== 3. 接近奖励（鼓励靠近目标） =====
-        # 使用历史最近距离追踪进展
+        # ===== 3. 接近奖励（鼓励持续缩短距离） =====
+        # 通过历史最小距离跟踪净进展，减少来回抖动带来的虚假收益
         if "min_distance" not in info:
             info["min_distance"] = distance.copy()
         
@@ -460,20 +486,19 @@ class VBotSection001Env(NpEnv):
         info["min_distance"] = np.minimum(info["min_distance"], distance)
         approach_reward = np.clip(distance_improvement * 4.0, -1.0, 1.0)  # 每接近1米得4分
         
-        # ===== 4. 到达奖励（一次性） =====
+        # ===== 4. 到达奖励（一次性触发） =====
         info["ever_reached"] = info.get("ever_reached", np.zeros(self._num_envs, dtype=bool))
         first_time_reach = np.logical_and(reached, ~info["ever_reached"])
         info["ever_reached"] = np.logical_or(info["ever_reached"], reached)
         arrival_bonus = np.where(first_time_reach, 10.0, 0.0)
         
-        # 前向投影速度奖励：鼓励朝目标方向迈步，而不是原地抖动
+        # 前向投影速度奖励：鼓励沿目标方向迈步，而非原地抖动
         target_dir = position_error / (position_error_norm + 1e-6)
         forward_speed = np.sum(base_lin_vel[:, :2] * target_dir, axis=1)
         forward_progress_reward = np.where(reached, 0.0, np.clip(forward_speed, -0.5, 1.5))
 
-        # ===== 5. 停止奖励（到达后鼓励停止） =====
-        # 简化版本：只有线速度和角速度都很小时才有奖励
-        # 避免过度惩罚任何运动
+        # ===== 5. 停止奖励（到达后鼓励低速稳定） =====
+        # 仅在 reached 阶段生效；速度越低、偏航越稳，奖励越高
         speed_xy = np.linalg.norm(base_lin_vel[:, :2], axis=1)
         stop_base = 2.0 * (0.8 * np.exp(-(speed_xy / 0.2)**2) + 1.2 * np.exp(-(np.abs(gyro[:, 2]) / 0.1)**4))
         stop_bonus = np.where(reached, stop_base, 0.0)
@@ -490,7 +515,7 @@ class VBotSection001Env(NpEnv):
         vel_extreme = (np.isnan(dof_vel).any(axis=1)) | (np.isinf(dof_vel).any(axis=1)) | (vel_max > 1e6)
         termination_penalty = np.where(vel_overflow | vel_extreme, -20.0, termination_penalty)
         
-        # 倾斜惩罚
+        # 倾斜惩罚（高角度直接强惩）
         gxy = np.linalg.norm(projected_gravity[:, :2], axis=1)
         gz = projected_gravity[:, 2]
         tilt_angle = np.arctan2(gxy, np.abs(gz))
@@ -505,16 +530,15 @@ class VBotSection001Env(NpEnv):
         # projected_gravity 在正常站立时应该 ≈ [0, 0, -1]
         orientation_penalty = np.square(projected_gravity[:, 0]) + np.square(projected_gravity[:, 1]) + np.square(projected_gravity[:, 2] + 1.0)
         
-        # 提前预警倾斜：30°-60°之间递增惩罚（防止等到60°才反应）
-        # tilt_angle已经在上面计算过了
+        # 提前预警倾斜：25°开始递增惩罚，避免“临界角才纠正”
         tilt_warning = np.where(
-            tilt_angle > np.deg2rad(30),
-            -5.0 * (tilt_angle / np.deg2rad(60)) ** 2,  # 30°时约-1.25，60°时-5.0
+            tilt_angle > np.deg2rad(25),
+            -8.0 * (tilt_angle / np.deg2rad(60)) ** 2,  # 25°时约-1.4，60°时-8.0
             0.0
         )
         
         # ===== 综合奖励 =====
-        # 参考anymal_c的两阶段奖励结构
+        # 两阶段奖励结构：reached / not reached
         reward = np.where(
             reached,
             # 已到达：主要是停止奖励
@@ -523,7 +547,7 @@ class VBotSection001Env(NpEnv):
                 arrival_bonus +
                 - 1.0 * lin_vel_z_penalty +
                 - 0.1 * ang_vel_xy_penalty +
-                - 0.3 * orientation_penalty +   # 姿态稳定（防摔倒）
+                - 0.5 * orientation_penalty +   # 姿态稳定（防摔倒）权重增强
                 tilt_warning +                  # 提前预警倾斜
                 termination_penalty
             ),
@@ -536,7 +560,7 @@ class VBotSection001Env(NpEnv):
                 approach_reward +              # 接近奖励
                 - 1.0 * lin_vel_z_penalty +
                 - 0.1 * ang_vel_xy_penalty +
-                - 0.3 * orientation_penalty +   # 姿态稳定（防摔倒）
+                - 0.5 * orientation_penalty +   # 姿态稳定（防摔倒）权重增强
                 tilt_warning +                  # 提前预警倾斜
                 termination_penalty
             )
@@ -554,13 +578,14 @@ class VBotSection001Env(NpEnv):
         【终止条件】三个关键场景
         ============================================================
         
-        1. 摔倒: 倾斜角 > 60°
-        2. 出界: 距离原点 > 12.5m  
-        3. 成功停止: 到达且停住 => 截断Episode给奖励
+        1. 摔倒：倾斜角超过阈值
+        2. 出界：距离中心超边界
+        3. 基座触地：非法接触
+        4. 数值发散：关节速度异常
         """
         terminated = np.zeros(self._num_envs, dtype=bool)
         
-        # 1. 摔倒 (倾斜 > 60°)
+        # 1. 摔倒（倾斜 > 60°）
         tilt = np.linalg.norm(projected_gravity[:, :2], axis=1)
         tilt_angle = np.arctan2(tilt, np.abs(projected_gravity[:, 2]))
         fallen = tilt_angle > np.deg2rad(60)  # sin(60°) ≈ 0.866
@@ -603,6 +628,13 @@ class VBotSection001Env(NpEnv):
         return np.column_stack([x, y])
     
     def reset(self, data: mtx.SceneData, done: np.ndarray = None) -> tuple[np.ndarray, dict]:
+        """重置环境并构建初始观测/信息字典。
+
+        关键步骤：
+        1. 在环形区域随机出生位置
+        2. 使用随机 yaw（360°）初始化朝向
+        3. 初始化导航目标（中心点）与缓存信息
+        """
         cfg = self._cfg
         num_envs = data.shape[0]
         
@@ -621,11 +653,14 @@ class VBotSection001Env(NpEnv):
         
         dof_pos[:, 3:6] = robot_init_xyz
         
-        # 四元数设为单位四元数
+        # 随机初始朝向：360度随机 yaw
+        random_yaw = np.random.uniform(-np.pi, np.pi, num_envs)
         for i in range(num_envs):
-            dof_pos[i, self._base_quat_start:self._base_quat_end] = [0.0, 0.0, 0.0, 1.0]
+            # 机器人body：随机yaw的四元数
+            quat = self._euler_to_quat(0.0, 0.0, random_yaw[i])  # roll=0, pitch=0, yaw=random
+            dof_pos[i, self._base_quat_start:self._base_quat_end] = quat
             if self._robot_arrow_body is not None:
-                dof_pos[i, self._robot_arrow_dof_start + 3:self._robot_arrow_dof_end] = [0.0, 0.0, 0.0, 1.0]
+                dof_pos[i, self._robot_arrow_dof_start + 3:self._robot_arrow_dof_end] = quat
                 dof_pos[i, self._desired_arrow_dof_start + 3:self._desired_arrow_dof_end] = [0.0, 0.0, 0.0, 1.0]
         
         # 目标：中心(0,0)

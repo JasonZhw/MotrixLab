@@ -346,11 +346,11 @@ class navigation:
     @rlcfg("MotrixArena_S1_section001_56")
     @dataclass
     class VBotNavigationSection001PPOConfig(PPOCfg):
-
+        """Section001任务配置 - 延长训练至10/10成功率"""
         seed: int = 42
-        num_envs: int = 2048  # 从4096扩大到8192，并行度翻倍加速训练
+        num_envs: int = 2048
         play_num_envs: int = 10
-        max_env_steps: int = 1024 * 60_000
+        max_env_steps: int = 2048 * 50_000  # 60M → 100M步，确保充分收敛
         check_point_interval: int = 500
 
         learning_rate: float = 3e-4  
@@ -373,22 +373,25 @@ class navigation:
     @rlcfg("MotrixArena_S1_section01_56")
     @dataclass
     class VBotNavigationSection01PPOConfig(PPOCfg):
-        """完整Section01训练配置 (最终验证用)"""
+        """完整Section01训练配置 (v7.23 - 低方差稳态版)"""
         seed: int = 42
-        num_envs: int = 2048  
+        num_envs: int = 2048
         play_num_envs: int = 1
-        max_env_steps: int = 2048 * 70_000
+        max_env_steps: int = 2048 * 280_000
         check_point_interval: int = 1000
-        share_policy_value_features: bool =True # 共享特征：全局策略统一表征，减少参数量加速收敛
+        share_policy_value_features: bool = True
 
+        # 26-03-05成功参数：保留适度探索，平衡收敛速度和稳定性
         learning_rate: float = 5e-4
         rollouts: int = 64
         learning_epochs: int = 6
-        mini_batches: int = 64  # batch=4096×32=131072, mini_batch=2048
-        discount_factor: float = 0.995  # 长路线/楼梯任务更重视长期回报
+        mini_batches: int = 64
+        discount_factor: float = 0.995  
         lambda_param: float = 0.97
         grad_norm_clip: float = 1.0
-        entropy_loss_scale: float = 0.008  # 保留适度探索，降低楼梯卡住局部最优概率
+        
+        # 保留适度探索，降低陷入局部最优概率
+        entropy_loss_scale: float = 0.008
 
         ratio_clip: float = 0.2
         value_clip: float = 0.2

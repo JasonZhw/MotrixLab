@@ -257,10 +257,10 @@ class VBotSection01EnvCfg(VBotStairsEnvCfg):
                 [0.0, 32.0]    # 最终终点
             ]
         )
-        milestone_reward: float = 55.0  # 每个里程碑奖励
+        milestone_reward: float = 60.0  # 每个里程碑奖励
 
         goal_y: float = 32.0  # 最终终点
-        goal_reached_reward: float = 150.0
+        goal_reached_reward: float = 300.0  # v7.22: 150→300，大幅奖励终点到达，鼓励冲向但同时要稳
         celebration_reward: float = 60  # 每次庆祝奖励（v7.8: 15→25，配合动作覆盖确保庆祝有高回报）
         
 
