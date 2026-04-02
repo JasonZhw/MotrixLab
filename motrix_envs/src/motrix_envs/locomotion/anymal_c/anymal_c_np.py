@@ -500,25 +500,25 @@ class AnymalCEnv(NpEnv):
             pos_range[0],
             pos_range[2],  # x_min, x_max
             num_envs,
-        )
+        ).astype(np.float32)
         robot_init_y = np.random.uniform(
             pos_range[1],
             pos_range[3],  # y_min, y_max
             num_envs,
-        )
+        ).astype(np.float32)
         robot_init_pos = np.stack([robot_init_x, robot_init_y], axis=1)  # [num_envs, 2]
 
         # Generate target position: offset relative to robot initial position
         # pose_command_range now represents offset range relative to robot
         target_offset = np.random.uniform(
             low=cfg.commands.pose_command_range[:2], high=cfg.commands.pose_command_range[3:5], size=(num_envs, 2)
-        )
+        ).astype(np.float32)
         target_positions = robot_init_pos + target_offset  # Target position in world coordinates
 
         # Generate target heading (absolute heading, random in horizontal direction)
         target_headings = np.random.uniform(
             low=cfg.commands.pose_command_range[2], high=cfg.commands.pose_command_range[5], size=(num_envs, 1)
-        )
+        ).astype(np.float32)
 
         pose_commands = np.concatenate([target_positions, target_headings], axis=1)
 

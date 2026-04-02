@@ -22,6 +22,7 @@ from motrix_envs.base import EnvCfg
 model_file = os.path.dirname(__file__) + "/acrobot.xml"
 
 
+# -- docs-tag-start: acrobot-env-cfg --
 @registry.envcfg("acrobot")
 @dataclass
 class AcrobotEnvCfg(EnvCfg):
@@ -31,3 +32,6 @@ class AcrobotEnvCfg(EnvCfg):
     render_spacing: float = 2.0
     sim_dt: float = 0.01
     ctrl_dt: float = 0.02
+
+
+# -- docs-tag-end: acrobot-env-cfg --

@@ -104,30 +104,18 @@ uv run scripts/play.py --env pendulum --policy runs/pendulum/nn/best_policy.pick
 
 ### 环境配置（示例）
 
-```python
-@dataclass
-class PendulumEnvCfg(EnvCfg):
-    model_file: str = ".../pendulum.xml"  # MJCF 模型，默认 gear=5
-    max_episode_seconds: float = 20.0
-    sim_dt: float = 0.0125
-    ctrl_dt: float = 0.025
+```{literalinclude} ../../../../motrix_envs/src/motrix_envs/basic/pendulum/cfg.py
+:language: python
+:start-after: '# -- docs-tag-start: pendulum-env-cfg --'
+:end-before: '# -- docs-tag-end: pendulum-env-cfg --'
 ```
 
 ### 训练配置（示例 PPO）
 
-```python
-@rlcfg("pendulum")
-@dataclass
-class PendulumPPO(PPOCfg):
-    seed: int = 42
-    max_env_steps: int = 10_000_000
-    num_envs: int = 1024
-    learning_rate: float = 3e-4
-    rollouts: int = 32
-    learning_epochs: int = 5
-    mini_batches: int = 4
-    policy_hidden_layer_sizes: tuple[int, ...] = (64, 64)
-    value_hidden_layer_sizes: tuple[int, ...] = (64, 64)
+```{literalinclude} ../../../../motrix_rl/src/motrix_rl/tasks/pendulum.py
+:language: python
+:start-after: '# -- docs-tag-start: pendulum-train-cfg --'
+:end-before: '# -- docs-tag-end: pendulum-train-cfg --'
 ```
 
 ---

@@ -1,8 +1,12 @@
 # Installation Environment
 
-## Installation Requirements
+This document will guide you through the installation and configuration of MotrixLab. Please read the system requirements carefully and choose the appropriate installation method based on your use case.
+
+## System Requirements
 
 -   **Python Version**: {bdg-danger-line}`3.10.*`
+
+    This project requires a specific Python version, other versions are not currently supported:
 
     | Python Version | Support Status |
     | :------------: | :------------: |
@@ -11,6 +15,8 @@
     |     ≥ 3.11     |       ❌       |
 
 -   **Package Manager**: {bdg-danger-line}`UV`
+
+    This project uses UV as the exclusive package management tool to provide fast, reproducible dependency management environment. For UV installation, please refer to the [official documentation](https://docs.astral.sh/uv/getting-started/installation/).
 
 -   **System and Architecture**:
 
@@ -26,30 +32,34 @@
     |     Windows      |       ✅       |         ✅          |    🛠️ In Development    |
     ```
 
-## Installation Method
+## Installation Steps
 
-### Clone Project
+### Clone Project Repository
 
 ```bash
 git clone https://github.com/Motphys/MotrixLab.git
 cd MotrixLab
 ```
 
-### Install Dependencies
+### Configure Dependencies
 
-Use UV to install project dependencies:
+Execute the following command to install complete dependencies:
 
 ```bash
 # Install all dependencies
 uv sync --all-packages --all-extras
 ```
 
-If you only need to install one training backend, you can choose to install a specific backend type:
+If you only need specific training frameworks, you can selectively install to reduce dependency size:
 
 ```bash
-# Install SKRL JAX (support Linux only)
+
+# Install SKRL JAX (Linux only)
 uv sync --all-packages --extra skrl-jax
 
 # Install SKRL PyTorch
 uv sync --all-packages --extra skrl-torch
+
+# Install RSLRL (PyTorch only)
+uv sync --all-packages --extra rslrl
 ```

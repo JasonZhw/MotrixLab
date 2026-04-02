@@ -1,0 +1,43 @@
+<mujoco model="point_mass">
+    <compiler inertiafromgeom="true" />
+    <option gravity="0 0 0" timestep="0.01" />
+    <default>
+        <joint armature="0" damping="0.1" />
+        <geom contype="0" conaffinity="0" friction="1 0.1 0.1" />
+        <motor ctrlrange="-1 1" gear="10" />
+    </default>
+    <asset>
+        <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.4 0.4 0.4" rgb2="0 0 0"
+            width="512"
+            height="512" />
+        <texture name="motphys-ground" type="2d" file="../../common/motphys-ground.png" />
+        <material name="motphys-ground" texture="motphys-ground" texuniform="true"
+            texrepeat="0.4 0.4" />
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
+        <geom name="floor" size="0 0 0.01" type="plane" material="motphys-ground" pos="0 0 0" />
+    </worldbody>
+
+    <worldbody>
+        <!-- Point mass -->
+        <body name="point_mass" pos="0 0 0.1">
+            <joint name="point_mass_x" type="slide" axis="1 0 0" />
+            <joint name="point_mass_y" type="slide" axis="0 1 0" />
+            <geom name="mass" type="sphere" size="0.05" rgba="0.5 0.5 1 1" mass="1" />
+        </body>
+
+        <!-- Target -->
+        <body name="target" pos="0 0 0.1" mocap="true">
+            <joint name="target_x" type="slide" axis="1 0 0" />
+            <joint name="target_y" type="slide" axis="0 1 0" />
+            <geom name="target_geom" type="sphere" size="0.1" rgba="1 0 0 0.8" contype="0" conaffinity="0" />
+        </body>
+    </worldbody>
+
+    <actuator>
+        <motor name="x_force" joint="point_mass_x" />
+        <motor name="y_force" joint="point_mass_y" />
+    </actuator>
+</mujoco>

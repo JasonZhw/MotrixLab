@@ -54,7 +54,7 @@ class Humanoid3DEnv(NpEnv):
 
     def _build_qpos_limits(self, model) -> tuple[np.ndarray, np.ndarray]:
         num_dof_pos = int(model.num_dof_pos)
-        jl = np.asarray(model.joint_limits, dtype=np.float32)
+        jl = model.joint_limits
         if jl.ndim != 2 or jl.shape[0] != 2:
             low = np.full((num_dof_pos,), -np.inf, dtype=np.float32)
             high = np.full((num_dof_pos,), np.inf, dtype=np.float32)
@@ -168,17 +168,17 @@ class Humanoid3DEnv(NpEnv):
         return obs, {}
 
     def _get_obs(self, data: mtx.SceneData) -> np.ndarray:
-        joint_angles = np.asarray(data.dof_pos[:, 7:], dtype=np.float32)
-        head_height = self._get_head_height(data).astype(np.float32)[:, None]
-        extremities = self._get_extremities(data).astype(np.float32)
+        joint_angles = data.dof_pos[:, 7:]
+        head_height = self._get_head_height(data)[:, None]
+        extremities = self._get_extremities(data)
 
         torso_rot = self._torso.get_rotation_mat(data)
-        torso_vertical = np.asarray(torso_rot[:, 2, :], dtype=np.float32)
+        torso_vertical = torso_rot[:, 2, :]
 
-        com_vel = np.asarray(self._model.get_sensor_value("torso_subtreelinvel", data), dtype=np.float32)
+        com_vel = self._model.get_sensor_value("torso_subtreelinvel", data)
 
-        qvel = np.asarray(data.dof_vel, dtype=np.float32)
-        target_direction_local = self._get_target_direction_local(data).astype(np.float32)
+        qvel = data.dof_vel
+        target_direction_local = self._get_target_direction_local(data)
 
         obs = np.concatenate(
             [joint_angles, head_height, extremities, torso_vertical, com_vel, qvel, target_direction_local], axis=-1
@@ -186,14 +186,14 @@ class Humanoid3DEnv(NpEnv):
         return obs
 
     def _get_head_height(self, data: mtx.SceneData) -> np.ndarray:
-        return np.asarray(self._head.get_position(data)[:, 2], dtype=np.float32)
+        return self._head.get_position(data)[:, 2]
 
     def _get_pelvis_height(self, data: mtx.SceneData) -> np.ndarray:
-        return np.asarray(self._pelvis.get_position(data)[:, 2], dtype=np.float32)
+        return self._pelvis.get_position(data)[:, 2]
 
     def _get_torso_upright(self, data: mtx.SceneData) -> np.ndarray:
         torso_rot = self._torso.get_rotation_mat(data)
-        return np.asarray(torso_rot[:, 2, 2], dtype=np.float32)
+        return torso_rot[:, 2, 2]
 
     def _get_extremities(self, data: mtx.SceneData) -> np.ndarray:
         torso_rot = self._torso.get_rotation_mat(data)
@@ -206,12 +206,10 @@ class Humanoid3DEnv(NpEnv):
             self._right_foot.get_position(data),
         ]
         out = []
-        torso_rot_f32 = np.asarray(torso_rot, dtype=np.float32)
-        torso_pos_f32 = np.asarray(torso_pos, dtype=np.float32)
 
         for p in parts:
-            torso_to_limb = np.asarray(p, dtype=np.float32) - torso_pos_f32
-            v_body = np.einsum("ni,nij->nj", torso_to_limb, torso_rot_f32)
+            torso_to_limb = p - torso_pos
+            v_body = np.einsum("ni,nij->nj", torso_to_limb, torso_rot)
             out.append(v_body)
 
         return np.concatenate(out, axis=-1)
@@ -219,9 +217,8 @@ class Humanoid3DEnv(NpEnv):
     def _get_target_direction_local(self, data: mtx.SceneData) -> np.ndarray:
         n = int(data.shape[0])
         torso_rot = self._torso.get_rotation_mat(data)
-        torso_rot_f32 = np.asarray(torso_rot, dtype=np.float32)
         target_world = np.ones((n, 3), dtype=np.float32) * self._target_direction[None, :]
-        target_local = np.einsum("ni,nij->nj", target_world, torso_rot_f32)
+        target_local = np.einsum("ni,nij->nj", target_world, torso_rot)
         return target_local
 
     def _compute_reward(
@@ -251,39 +248,27 @@ class Humanoid3DEnv(NpEnv):
         torso_upright: np.ndarray,
         pelvis_height: np.ndarray,
     ) -> np.ndarray:
-        stand_reward = (
-            reward.tolerance(
-                head_height,
-                bounds=(self._head_height_min, float("inf")),
-                margin=0.5,
-            )
-            .astype(np.float32)
-            .flatten()
-        )
+        stand_reward = reward.tolerance(
+            head_height,
+            bounds=(self._head_height_min, float("inf")),
+            margin=0.5,
+        ).flatten()
 
-        upright_reward = (
-            reward.tolerance(
-                torso_upright,
-                bounds=(0.9, float("inf")),
-                sigmoid="linear",
-                margin=0.9,
-            )
-            .astype(np.float32)
-            .flatten()
-        )
+        upright_reward = reward.tolerance(
+            torso_upright,
+            bounds=(0.9, float("inf")),
+            sigmoid="linear",
+            margin=0.9,
+        ).flatten()
 
-        pelvis_height_reward = (
-            reward.tolerance(
-                pelvis_height,
-                bounds=(self._pelvis_height_min, float("inf")),
-                sigmoid="linear",
-                margin=self._pelvis_height_margin,
-            )
-            .astype(np.float32)
-            .flatten()
-        )
+        pelvis_height_reward = reward.tolerance(
+            pelvis_height,
+            bounds=(self._pelvis_height_min, float("inf")),
+            sigmoid="linear",
+            margin=self._pelvis_height_margin,
+        ).flatten()
 
-        return (stand_reward * upright_reward * pelvis_height_reward).astype(np.float32)
+        return stand_reward * upright_reward * pelvis_height_reward
 
     def _compute_speed_and_energy_reward(
         self,
@@ -291,50 +276,38 @@ class Humanoid3DEnv(NpEnv):
     ) -> tuple[np.ndarray, np.ndarray]:
         target_dir_xy = self._target_direction_xy
 
-        ctrls = np.asarray(data.actuator_ctrls, dtype=np.float32)
-        com_vel = np.asarray(self._model.get_sensor_value("torso_subtreelinvel", data), dtype=np.float32)
+        ctrls = data.actuator_ctrls
+        com_vel = self._model.get_sensor_value("torso_subtreelinvel", data)
 
         if self._move_speed <= 0.0:
-            energy_reward = np.exp(-1.0 * np.mean(np.square(ctrls), axis=-1)).astype(np.float32)
-            actual_speed = np.linalg.norm(com_vel[:, :2], axis=-1).astype(np.float32)
-            speed_reward = (
-                reward.tolerance(
-                    actual_speed,
-                    bounds=(self._move_speed, self._move_speed),
-                    margin=1.0,
-                    value_at_margin=0.01,
-                )
-                .astype(np.float32)
-                .flatten()
-            )
+            energy_reward = np.exp(-1.0 * np.mean(np.square(ctrls), axis=-1))
+            actual_speed = np.linalg.norm(com_vel[:, :2], axis=-1)
+            speed_reward = reward.tolerance(
+                actual_speed,
+                bounds=(self._move_speed, self._move_speed),
+                margin=1.0,
+                value_at_margin=0.01,
+            ).flatten()
         elif self._move_speed <= 3.0:
-            energy_reward = np.exp(-0.5 * np.mean(np.square(ctrls), axis=-1)).astype(np.float32)
-            actual_speed = np.sum(com_vel[:, :2] * target_dir_xy, axis=-1).astype(np.float32)
-            speed_reward = (
-                reward.tolerance(
-                    actual_speed,
-                    bounds=(self._move_speed, self._move_speed),
-                    margin=self._move_speed,
-                    value_at_margin=0.0,
-                    sigmoid="linear",
-                )
-                .astype(np.float32)
-                .flatten()
-            )
+            energy_reward = np.exp(-0.5 * np.mean(np.square(ctrls), axis=-1))
+            actual_speed = np.sum(com_vel[:, :2] * target_dir_xy, axis=-1)
+            speed_reward = reward.tolerance(
+                actual_speed,
+                bounds=(self._move_speed, self._move_speed),
+                margin=self._move_speed,
+                value_at_margin=0.0,
+                sigmoid="linear",
+            ).flatten()
         else:
-            energy_reward = np.exp(-0.3 * np.mean(np.square(ctrls), axis=-1)).astype(np.float32)
-            actual_speed = np.sum(com_vel[:, :2] * target_dir_xy, axis=-1).astype(np.float32)
-            speed_reward = (
-                reward.tolerance(
-                    actual_speed,
-                    bounds=(self._move_speed, float("inf")),
-                    margin=self._move_speed,
-                    value_at_margin=0.0,
-                    sigmoid="linear",
-                )
-                .astype(np.float32)
-                .flatten()
-            )
+            energy_reward = np.exp(-0.3 * np.mean(np.square(ctrls), axis=-1))
+            actual_speed = np.sum(com_vel[:, :2] * target_dir_xy, axis=-1)
+            speed_reward = reward.tolerance(
+                actual_speed,
+                bounds=(self._move_speed, float("inf")),
+                margin=self._move_speed,
+                value_at_margin=0.0,
+                sigmoid="linear",
+            ).flatten()
 
         return speed_reward, energy_reward
 
@@ -346,17 +319,13 @@ class Humanoid3DEnv(NpEnv):
         margin,
     ) -> np.ndarray:
         dot = np.sum(forward_vec * target_dir, axis=-1)
-        return (
-            reward.tolerance(
-                dot,
-                bounds=bounds,
-                margin=margin,
-                value_at_margin=0.0,
-                sigmoid="linear",
-            )
-            .astype(np.float32)
-            .flatten()
-        )
+        return reward.tolerance(
+            dot,
+            bounds=bounds,
+            margin=margin,
+            value_at_margin=0.0,
+            sigmoid="linear",
+        ).flatten()
 
     def _compute_gait_reward(self, data: mtx.SceneData) -> np.ndarray:
         target_dir = self._target_direction
@@ -365,49 +334,36 @@ class Humanoid3DEnv(NpEnv):
         head_rot = self._head.get_rotation_mat(data)
         pelvis_rot = self._pelvis.get_rotation_mat(data)
 
-        torso_forward = np.asarray(torso_rot[:, 0, 0:3], dtype=np.float32)
+        torso_forward = torso_rot[:, 0, 0:3]
         torso_heading_reward = self._compute_heading_reward(torso_forward, target_dir, bounds=(0.9, 1.0), margin=0.3)
 
-        head_forward = np.asarray(head_rot[:, 0, 0:3], dtype=np.float32)
+        head_forward = head_rot[:, 0, 0:3]
         head_heading_reward = self._compute_heading_reward(head_forward, target_dir, bounds=(0.9, 1.0), margin=0.3)
 
-        pelvis_forward = np.asarray(pelvis_rot[:, 0, 0:3], dtype=np.float32)
+        pelvis_forward = pelvis_rot[:, 0, 0:3]
         pelvis_yaw_reward = self._compute_heading_reward(pelvis_forward, target_dir, bounds=(0.9, 1.0), margin=0.3)
 
-        pelvis_up = np.asarray(pelvis_rot[:, 2, 2], dtype=np.float32)
-        pelvis_level_reward = (
-            reward.tolerance(
-                pelvis_up,
-                bounds=(0.9, 1.0),
-                margin=0.3,
-                sigmoid="linear",
-                value_at_margin=0.0,
-            )
-            .astype(np.float32)
-            .flatten()
-        )
+        pelvis_up = pelvis_rot[:, 2, 2]
+        pelvis_level_reward = reward.tolerance(
+            pelvis_up,
+            bounds=(0.9, 1.0),
+            margin=0.3,
+            sigmoid="linear",
+            value_at_margin=0.0,
+        ).flatten()
 
         left_foot_pos = self._left_foot.get_position(data)
         right_foot_pos = self._right_foot.get_position(data)
-        max_foot_h = np.maximum(
-            np.asarray(left_foot_pos[:, 2], dtype=np.float32),
-            np.asarray(right_foot_pos[:, 2], dtype=np.float32),
-        )
-        feet_height_reward = (
-            reward.tolerance(
-                max_foot_h,
-                bounds=(0.0, 0.3),
-                margin=0.5,
-                sigmoid="quadratic",
-                value_at_margin=0.0,
-            )
-            .astype(np.float32)
-            .flatten()
-        )
+        max_foot_h = np.maximum(left_foot_pos[:, 2], right_foot_pos[:, 2])
+        feet_height_reward = reward.tolerance(
+            max_foot_h,
+            bounds=(0.0, 0.3),
+            margin=0.5,
+            sigmoid="quadratic",
+            value_at_margin=0.0,
+        ).flatten()
 
-        return (
-            torso_heading_reward * head_heading_reward * pelvis_yaw_reward * pelvis_level_reward * feet_height_reward
-        ).astype(np.float32)
+        return torso_heading_reward * head_heading_reward * pelvis_yaw_reward * pelvis_level_reward * feet_height_reward
 
     def _compute_terminated(
         self,
@@ -415,13 +371,13 @@ class Humanoid3DEnv(NpEnv):
         head_height: np.ndarray,
         torso_upright: np.ndarray,
     ) -> np.ndarray:
-        qpos = np.asarray(data.dof_pos, dtype=np.float32)
-        qvel = np.asarray(data.dof_vel, dtype=np.float32)
+        qpos = data.dof_pos
+        qvel = data.dof_vel
         bad = ~np.isfinite(qpos).all(axis=-1) | ~np.isfinite(qvel).all(axis=-1)
         too_low = head_height < self._term_head_height_min
         too_tilted = torso_upright < self._term_torso_upright_threshold
         extreme_vel = np.abs(qvel).max(axis=-1) > self._term_extreme_vel_threshold
-        return (bad | too_low | too_tilted | extreme_vel).astype(bool)
+        return bad | too_low | too_tilted | extreme_vel
 
     def _init_joint_randomization_config(self, cfg: HumanoidWalkCfg) -> None:
         init_cfg = cfg.init_state

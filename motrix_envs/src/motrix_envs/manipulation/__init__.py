@@ -13,4 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from . import franka_lift_cube, franka_open_cabinet, shadow_hand  # noqa: F401 import to register envs
+from . import (
+    franka_lift_cube,
+    franka_open_cabinet,
+    rm65_open_cabinet,
+    shadow_hand,
+)

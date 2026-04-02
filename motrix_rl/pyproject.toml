@@ -4,8 +4,8 @@ build-backend = "uv_build"
 
 [project]
 name = "motrix-rl"
-version = "0.2.0"
-description = "Reinforcement learning training framework based on SKRL with multi-backend unified training interface."
+version = "0.3.0"
+description = "Reinforcement learning training framework with multi-backend unified training interface."
 authors = [{ name = "Motphys", email = "developers@motphys.com" }]
 requires-python = "==3.10.*"
 readme = "README.md"
@@ -21,6 +21,12 @@ skrl-jax = [
 ]
 skrl-torch = [
     "skrl===1.4.3",
+    "torch===2.7.0+cu128",
+    "torchvision===v0.22.0+cu128",
+    "torchaudio===2.7.0+cu128",
+]
+rslrl = [
+    "rsl-rl-lib>=4.0.0",
     "torch===2.7.0+cu128",
     "torchvision===v0.22.0+cu128",
     "torchaudio===2.7.0+cu128",

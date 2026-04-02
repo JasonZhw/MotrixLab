@@ -12,14 +12,14 @@
 The project is divided into two core components:
 
 -   **motrix_envs**: Various RL simulation environments built on MotrixSim, defining observation, action, and reward. Framework-agnostic and currently supports MotrixSim's CPU backend
--   **motrix_rl**: Integrates RL frameworks and uses various environment parameters from motrix_envs for training. Currently supports SKRL framework's PPO algorithm
+-   **motrix_rl**: Integrates RL frameworks and uses various environment parameters from motrix_envs for training. Currently supports SKRL framework (JAX/PyTorch) and RSLRL framework (PyTorch) PPO algorithms
 
 > Documentation: https://motrixlab.readthedocs.io
 
 ## Key Features
 
 -   **Unified Interface**: Provides a concise and unified reinforcement learning training and evaluation interface
--   **Multi-backend Support**: Supports JAX and PyTorch training backends, with flexible selection based on hardware environment
+-   **Multi-framework Support**: Supports SKRL (JAX/PyTorch) and RSLRL (PyTorch) training frameworks with flexible selection based on hardware environment
 -   **Rich Environments**: Includes various robot simulation environments such as basic control, locomotion, and manipulation tasks
 -   **High-performance Simulation**: Built on MotrixSim's high-performance physics simulation engine
 -   **Visual Training**: Supports real-time rendering and training process visualization
@@ -62,6 +62,12 @@ Install PyTorch as training backend:
 uv sync --all-packages --extra skrl-torch
 ```
 
+Install RSLRL framework (PyTorch backend only):
+
+```bash
+uv sync --all-packages --extra rslrl
+```
+
 ## 🎯 Usage Guide
 
 ### Environment Visualization
@@ -74,8 +80,16 @@ uv run scripts/view.py --env cartpole
 
 ### Model Training
 
+Train with SKRL framework (default):
+
 ```bash
 uv run scripts/train.py --env cartpole
+```
+
+Train with RSLRL framework:
+
+```bash
+uv run scripts/train.py --env cartpole --rllib rslrl
 ```
 
 Training results are saved in the `runs/{env-name}/` directory.

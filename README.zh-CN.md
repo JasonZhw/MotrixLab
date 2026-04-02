@@ -12,14 +12,14 @@
 该项目分为两个核心部分：
 
 -   **motrix_envs**: 基于 MotrixSim 构建的各种 RL 仿真环境，定义了 observation、action、reward。与具体的 RL 框架无关，目前支持 MotrixSim 的 CPU 后端
--   **motrix_rl**: 集成 RL 框架，并使用 motrix_envs 里的各种环境参数进行训练。目前支持 SKRL 框架的 PPO 算法
+-   **motrix_rl**: 集成 RL 框架，并使用 motrix_envs 里的各种环境参数进行训练。目前支持 SKRL 框架（JAX/PyTorch）和 RSLRL 框架（PyTorch）的 PPO 算法
 
 > 文档地址：https://motrixlab.readthedocs.io
 
 ## 主要特性
 
 -   **统一接口**: 提供简洁统一的强化学习训练和评估接口
--   **多后端支持**: 支持 JAX 和 PyTorch 训练后端，可根据硬件环境灵活选择
+-   **多框架支持**: 支持 SKRL (JAX/PyTorch) 和 RSLRL (PyTorch) 训练框架，可根据硬件环境灵活选择
 -   **丰富环境**: 包含基础控制、运动、操作等多种机器人仿真环境
 -   **高性能仿真**: 基于 MotrixSim 的高性能物理仿真引擎
 -   **可视化训练**: 支持实时渲染和训练过程可视化
@@ -62,6 +62,12 @@ uv sync --all-packages --extra skrl-jax
 uv sync --all-packages --extra skrl-torch
 ```
 
+安装 RSLRL 框架（仅支持 PyTorch 后端）：
+
+```bash
+uv sync --all-packages --extra rslrl
+```
+
 ## 🎯 使用指南
 
 ### 环境可视化
@@ -74,8 +80,16 @@ uv run scripts/view.py --env cartpole
 
 ### 训练模型
 
+使用 SKRL 框架训练（默认）：
+
 ```bash
 uv run scripts/train.py --env cartpole
+```
+
+使用 RSLRL 框架训练：
+
+```bash
+uv run scripts/train.py --env cartpole --rllib rslrl
 ```
 
 训练结果会保存在 `runs/{env-name}/` 目录下。

@@ -61,24 +61,13 @@ GO1 环境的观测空间由以下部分组成（按顺序）：
 
 GO1 的奖励函数是一个复杂的复合函数，包含多个组件：
 
-```python
-# 主要奖励组件
-reward_config.scales = {
-    "tracking_lin_vel": 1.0,      # 线速度跟踪奖励
-    "tracking_ang_vel": 0.5,      # 角速度跟踪奖励
-    "feet_air_time": 1.0,         # 足部空中时间奖励
-    "lin_vel_z": -2.0,            # Z轴线速度惩罚
-    "ang_vel_xy": -0.05,          # XY轴角速度惩罚
-    "orientation": -0.0,          # 姿态偏离惩罚
-    "torques": -0.00001,          # 力矩消耗惩罚
-    "dof_acc": -2.5e-7,           # 关节加速度惩罚
-    "action_rate": -0.001,        # 动作变化率惩罚
-    "hip_pos": -1,                # 髋关节位置惩罚
-    "calf_pos": -0.3,             # 腿关节位置惩罚
-}
-
-# 总奖励 = 加权组合以上所有项
+```{literalinclude} ../../../../motrix_envs/src/motrix_envs/locomotion/go1/cfg.py
+:language: python
+:start-after: '# -- docs-tag-start: go1-reward-config --'
+:end-before: '# -- docs-tag-end: go1-reward-config --'
 ```
+
+_总奖励 = 加权组合以上所有项_
 
 ---
 

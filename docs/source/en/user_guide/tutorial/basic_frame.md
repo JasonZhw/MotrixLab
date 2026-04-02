@@ -16,6 +16,7 @@ MotrixLab/
 │   └── registry.py             # Environment registry system
 ├── motrix_rl/                # Training layer: RL algorithms and configuration
 │   ├── skrl/                   # SKRL framework integration (JAX/PyTorch)
+│   ├── rslrl/                  # RSLRL framework integration (PyTorch)
 │   ├── base.py                 # RL configuration base class
 │   └── registry.py             # RL configuration registry system
 └── scripts
@@ -34,7 +35,7 @@ MotrixLab/
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Training Algorithm Layer (SKRL)              │
+│             Training Algorithm Layer (SKRL / RSLRL)             │
 │                 PPO Trainer │ Network Architecture │ Optimizer   │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -128,13 +129,15 @@ Configuration parameters play a key connecting role throughout the process:
 -   **Reward Configuration** affects learning signals (reward weights, calculation methods, etc.)
 -   **Training Configuration** controls algorithm behavior (network structure, learning rate, batch size, etc.)
 
-## Multi-Backend Support
+## Multi-Framework Support
 
-MotrixLab's layered design naturally supports multiple backends:
+MotrixLab's layered design naturally supports multiple RL frameworks:
 
 -   **Simulation Backends**: MotrixSim (CPU)
--   **Training Backends**: JAX and PyTorch, supporting GPU acceleration
--   **Algorithm Framework**: Mainly integrates SKRL, easy to extend to other algorithms
+-   **Training Frameworks**:
+    -   **SKRL**: Supports JAX and PyTorch backends with GPU acceleration
+    -   **RSLRL**: Supports PyTorch backend with GPU acceleration
+-   **Framework Selection**: Use `--rllib` parameter to choose between `skrl` (default) and `rslrl`
 
 ## Design Advantages
 

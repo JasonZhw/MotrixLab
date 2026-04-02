@@ -244,7 +244,7 @@ class Go1WalkTask(NpEnv):
             high=self.cfg.commands.vel_limit[1],
             size=(num_envs, 3),
         )
-        return commands
+        return commands.astype(np.float32)
 
     def update_reward(self, state: NpEnvState) -> NpEnvState:
         data = state.data
@@ -266,12 +266,9 @@ class Go1WalkTask(NpEnv):
     def reset(self, data) -> tuple[np.ndarray, dict]:
         num_reset = data.shape[0]
 
-        dof_pos = np.tile(self._init_dof_pos, (num_reset, 1))
-        dof_vel = np.tile(self._init_dof_vel, (num_reset, 1))
-
         data.reset(self._model)
-        data.set_dof_vel(dof_vel)
-        data.set_dof_pos(dof_pos, self._model)
+        data.set_dof_vel(self._init_dof_vel)
+        data.set_dof_pos(self._init_dof_pos, self._model)
         self._model.forward_kinematic(data)
 
         info = {

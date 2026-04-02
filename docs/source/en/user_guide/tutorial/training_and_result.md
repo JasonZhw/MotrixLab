@@ -7,56 +7,64 @@ This section introduces how to execute reinforcement learning training and how t
 ### Basic Training Commands
 
 ```bash
-# Train with default parameters
+# Train with default parameters (SKRL framework)
 uv run scripts/train.py --env cartpole
+
+# Specify RL framework
+uv run scripts/train.py --env cartpole --rllib skrl
+uv run scripts/train.py --env cartpole --rllib rslrl
 
 # Specify simulation backend
 uv run scripts/train.py --env cartpole --sim-backend np
 
-# Specify training backend
-uv run scripts/train.py --env cartpole --train-backend jax
-uv run scripts/train.py --env cartpole --train-backend torch
+# Specify training backend (SKRL only)
+uv run scripts/train.py --env cartpole --rllib skrl --train-backend jax
+uv run scripts/train.py --env cartpole --rllib skrl --train-backend torch
 ```
 
 ### Advanced Training Configuration
 
 ```bash
-# Customize training parameters
+# Customize training parameters with SKRL
 uv run scripts/train.py --env cartpole \
+  --rllib skrl \
   --num-envs 1024 \
   --train-backend jax \
   --sim-backend np
+
+# Customize training parameters with RSLRL
+uv run scripts/train.py --env cartpole \
+  --rllib rslrl \
+  --num-envs 1024 \
+  --sim-backend np
+
+# Note: Parameters like learning rate need to be set through configuration files or code override
 
 # Enable rendering to monitor training process
 uv run scripts/train.py --env cartpole --render
 ```
 
-### Different Backend Configuration Differences
+### Different Framework Configuration
 
-The system supports configuring different reinforcement learning parameters for different training backends (JAX/Torch). For example:
+The system supports different RL frameworks with different configuration systems:
 
--   **dm-walker environment**:
+-   **SKRL Framework**: Supports JAX and PyTorch training backends with configurable parameters per backend (via Python dataclasses)
+-   **RSLRL Framework**: Supports PyTorch backend with configuration via Python dataclasses (RslrlCfg)
 
-    -   JAX backend: `mini_batches: 4`
-    -   Torch backend: `mini_batches: 32`
-
--   **dm-runner environment**:
-    -   JAX backend: `learning_epochs: 4`
-    -   Torch backend: `learning_epochs: 2`
-
-These differences are implemented through the `@rlcfg(env_name, backend="jax/torch")` decorator in configuration classes. The system automatically applies the corresponding configuration based on the selected training backend.
+For SKRL, the system supports configuring different reinforcement learning parameters for different training backends (JAX/Torch).
 
 ### Supported Command Line Parameters
 
-| Parameter         | Description                     | Default Value |
-| ----------------- | ------------------------------- | ------------- |
-| `--env`           | Environment name                | `cartpole`    |
-| `--sim-backend`   | Simulation backend (np)         | Auto select   |
-| `--train-backend` | Training backend (jax/torch)    | Auto select   |
-| `--num-envs`      | Number of parallel environments | 2048          |
-| `--render`        | Enable rendering                | False         |
+| Parameter         | Description                             | Default Value |
+| ----------------- | --------------------------------------- | ------------- |
+| `--env`           | Environment name                        | `cartpole`    |
+| `--rllib`         | RL framework (skrl/rslrl)               | `skrl`        |
+| `--sim-backend`   | Simulation backend (np)                 | Auto select   |
+| `--train-backend` | Training backend (jax/torch, SKRL only) | Auto select   |
+| `--num-envs`      | Number of parallel environments         | 2048          |
+| `--render`        | Enable rendering                        | False         |
 
-> **Note**: Other parameters such as learning rate, network structure, etc., can be set in configuration files. Some environments support configuring different parameters for different training backends.
+> **Note**: Other parameters such as learning rate, network structure, etc., need to be set through separate configuration files.
 
 ## Training Process Monitoring
 
@@ -83,7 +91,7 @@ uv run tensorboard --logdir runs/cartpole
 uv run scripts/play.py --env cartpole
 
 # Manually specify policy file for testing
-uv run scripts/play.py --env cartpole --policy runs/cartpole/nn/best_policy.pickle
+uv run scripts/play.py --env cartpole --policy runs/cartpole/nn/best_agent.pickle
 
 # Specify number of test environments
 uv run scripts/play.py --env cartpole --num-envs 100

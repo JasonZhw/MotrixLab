@@ -13,4 +13,10 @@
 # limitations under the License.
 # ==============================================================================
 
-from . import cfgs, skrl  # noqa: F401
+from . import tasks  # noqa: F401
+from .rslrl.cfg import (  # noqa: F401
+    RslRlActorCfg,
+    RslRlCriticCfg,
+    RslRlPpoAlgorithmCfg,
+    RslrlRunnerCfg,
+)

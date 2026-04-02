@@ -21,8 +21,11 @@ from . import (  # noqa: F401 import to register envs
     finger,
     hopper,
     humanoid,
+    lqr,
     manipulator,
     pendulum,
+    point_mass,
+    quadruped,
     reacher,
     walker,
 )

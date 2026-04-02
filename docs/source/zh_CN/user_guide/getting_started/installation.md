@@ -89,4 +89,7 @@ uv sync --all-packages --extra skrl-jax
 
 # 安装 SKRL PyTorch
 uv sync --all-packages --extra skrl-torch
+
+# 安装 RSLRL（仅支持 PyTorch）
+uv sync --all-packages --extra rslrl
 ```

@@ -34,14 +34,18 @@ demo/dm_walker
 demo/dm_cheetah
 demo/dm_hopper
 demo/dm_reacher
+demo/dm_lqr
 demo/dm_finger
 demo/dm_humanoid
+demo/dm_quadruped
 demo/bring_ball
+demo/dm_point_mass
 demo/locomotion_unitree_go1
 demo/locomotion_unitree_go1_rough_terrain
 demo/anymal_c
 demo/franka_lift_cube
 demo/franka_open_cabinet
+demo/rm65_open_cabinet
 demo/shadow_hand_repose
 
 ```

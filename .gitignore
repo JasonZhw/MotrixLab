@@ -9,3 +9,4 @@ node_modules
 docs/build
 docs/source/user_guide
 docs/source/index.md
+.worktrees

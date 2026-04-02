@@ -182,6 +182,7 @@ class NpEnv(ABEnv):
         pass
 
     def physics_step(self):
+        # motrixsim.SceneModel.step only supports single step, so we loop
         for _ in range(self._cfg.sim_substeps):
             self._model.step(self._state.data)
 

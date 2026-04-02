@@ -79,7 +79,6 @@ class Reacher2DEnv(NpEnv):
         terminated = np.isnan(obs).any(axis=-1)
         rwd[terminated] = 0.0
 
-        state.info["target_info"] = {"positions": self._target_xyz.copy(), "size": self._target_size}
         state.info["Reward"] = {"distance": dist, "tolerance": rwd.copy()}
 
         return state.replace(obs=obs, reward=rwd, terminated=terminated)
@@ -110,6 +109,8 @@ class Reacher2DEnv(NpEnv):
 
         obs = self._get_obs(data)
         rewards = {"distance": np.zeros((num_reset,)), "tolerance": np.zeros((num_reset,))}
-        info = {"Reward": rewards, "target_info": {"positions": self._target_xyz.copy(), "size": self._target_size}}
+        info = {
+            "Reward": rewards,
+        }
 
         return obs, info

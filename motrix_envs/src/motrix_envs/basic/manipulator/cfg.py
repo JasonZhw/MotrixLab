@@ -28,7 +28,7 @@ class BringBallCfg(EnvCfg):
     # Simulation
     model_file: str = bring_ball_model_file
     max_episode_seconds: float = 10.0
-    sim_dt: float = 0.001
+    sim_dt: float = 0.01
     ctrl_dt: float = 0.01
     render_spacing: float = 2.5
 

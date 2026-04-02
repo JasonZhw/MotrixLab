@@ -24,6 +24,7 @@ from motrix_envs.base import EnvCfg
 model_file = os.path.dirname(__file__) + "/pendulum.xml"
 
 
+# -- docs-tag-start: pendulum-env-cfg --
 @registry.envcfg("pendulum")
 @dataclass
 class PendulumEnvCfg(EnvCfg):
@@ -34,6 +35,7 @@ class PendulumEnvCfg(EnvCfg):
     angle_bound: float = 8.0
     cosing_bound: float = 0.0
     # reset_noise_scale: float = 0.01
+    # -- docs-tag-end: pendulum-env-cfg --
 
     def __post_init__(self):
         self.cosing_bound = float(np.cos(np.deg2rad(self.angle_bound)))

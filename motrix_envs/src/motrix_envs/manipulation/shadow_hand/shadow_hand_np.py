@@ -333,12 +333,12 @@ class ShadowHandReposeEnv(NpEnv):
             -cfg.reset_dof_pos_noise,
             cfg.reset_dof_pos_noise,
             (num_resets, self._num_hand_dofs),
-        )
+        ).astype(np.float32)
 
         # Add noise to DOF velocities
         dof_vel_noise = np.random.uniform(
             -cfg.reset_dof_vel_noise, cfg.reset_dof_vel_noise, (num_resets, self._num_hand_dofs)
-        )
+        ).astype(np.float32)
 
         # Set DOF states for all envs in data (already filtered)
         dof_pos = np.tile(init_dof_pos, (num_resets, 1))
@@ -350,7 +350,9 @@ class ShadowHandReposeEnv(NpEnv):
         data.set_dof_vel(dof_vel)
 
         # Reset cube position with small noise
-        cube_pos_noise = np.random.uniform(-cfg.reset_position_noise, cfg.reset_position_noise, (num_resets, 3))
+        cube_pos_noise = np.random.uniform(-cfg.reset_position_noise, cfg.reset_position_noise, (num_resets, 3)).astype(
+            np.float32
+        )
         cube_pos = np.tile(self._in_hand_pos, (num_resets, 1))
         cube_pos += cube_pos_noise
 

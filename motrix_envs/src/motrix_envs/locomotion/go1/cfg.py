@@ -92,6 +92,7 @@ class Sensor:
     feet = ["FR", "FL", "RR", "RL"]
 
 
+# -- docs-tag-start: go1-reward-config --
 @dataclass
 class RewardConfig:
     scales: dict[str, float] = field(
@@ -117,6 +118,9 @@ class RewardConfig:
 
     tracking_sigma: float = 0.25
     max_foot_height: float = 0.1
+
+
+# -- docs-tag-end: go1-reward-config --
 
 
 @registry.envcfg("go1-flat-terrain-walk")

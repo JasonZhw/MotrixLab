@@ -16,6 +16,7 @@ MotrixLab/
 │   └── registry.py             # 环境注册系统
 ├── motrix_rl/                # 训练层：RL算法和配置
 │   ├── skrl/                   # SKRL框架集成（JAX/PyTorch）
+│   ├── rslrl/                  # RSLRL框架集成（PyTorch）
 │   ├── base.py                 # RL配置基类
 │   └── registry.py             # RL配置注册系统
 └── scripts
@@ -34,7 +35,7 @@ MotrixLab/
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      训练算法层 (SKRL)                          │
+│                    训练算法层 (SKRL / RSLRL)                    │
 │                    PPO训练器 │ 网络架构 │ 优化器                 │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -128,13 +129,15 @@ train.py --env cartpole
 -   **奖励配置**影响学习信号（奖励权重、计算方式等）
 -   **训练配置**控制算法行为（网络结构、学习率、批次大小等）
 
-## 多后端支持
+## 多框架支持
 
-MotrixLab 的分层设计天然支持多种后端：
+MotrixLab 的分层设计天然支持多种 RL 框架：
 
--   **仿真后端**：MotrixSim
--   **训练后端**：JAX 和 PyTorch，支持 GPU 加速
--   **算法框架**：主要集成 SKRL，易于扩展其他算法
+-   **仿真后端**：MotrixSim（CPU）
+-   **训练框架**：
+    -   **SKRL**：支持 JAX 和 PyTorch 后端，支持 GPU 加速
+    -   **RSLRL**：支持 PyTorch 后端，支持 GPU 加速
+-   **框架选择**：使用 `--rllib` 参数在 `skrl`（默认）和 `rslrl` 之间选择
 
 ## 设计优势
 

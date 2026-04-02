@@ -7,8 +7,8 @@ MotrixLab is a general-purpose machine learning architecture designed for robot 
 
 :::{grid-item-card}
 
-```{video} _static/videos/cartpole.mp4
-:poster: _static/images/poster/cartpole.jpg
+```{video} _static/videos/shadow_hand_repose.mp4
+:poster: _static/images/poster/shadow_hand_repose.jpg
 :nocontrols:
 :autoplay:
 :playsinline:
@@ -147,8 +147,8 @@ MotrixLab is a general-purpose machine learning architecture designed for robot 
 
 :::{grid-item-card}
 
-```{video} _static/videos/dm_reacher.mp4
-:poster: _static/images/poster/dm_reacher.jpg
+```{video} _static/videos/cartpole.mp4
+:poster: _static/images/poster/cartpole.jpg
 :nocontrols:
 :autoplay:
 :playsinline:
@@ -177,6 +177,32 @@ MotrixLab is a general-purpose machine learning architecture designed for robot 
 
 ```{video} _static/videos/bounce_ball.mp4
 :poster: _static/images/poster/bounce_ball.jpg
+:nocontrols:
+:autoplay:
+:playsinline:
+:muted:
+:loop:
+:width: 100%
+```
+
+:::
+:::{grid-item-card}
+
+```{video} _static/videos/dm_quadruped_fetch.mp4
+:poster: _static/images/poster/dm_quadruped_fetch.png
+:nocontrols:
+:autoplay:
+:playsinline:
+:muted:
+:loop:
+:width: 100%
+```
+
+:::
+:::{grid-item-card}
+
+```{video} _static/videos/dm_quadruped_run.mp4
+:poster: _static/images/poster/dm_quadruped_run.png
 :nocontrols:
 :autoplay:
 :playsinline:

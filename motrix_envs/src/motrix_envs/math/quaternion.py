@@ -58,6 +58,24 @@ def conjugate(q):
     return q * np.array([-1, -1, -1, 1], dtype=q.dtype)
 
 
+def inverse(q):
+    """
+    Compute the inverse of a quaternion.
+
+    For unit quaternions, this is equal to the conjugate. For non-unit
+    quaternions, divide the conjugate by the squared norm.
+
+    Args:
+        q: Input quaternion(s). Shape: (..., 4)
+
+    Returns:
+        Inverse quaternion(s). Shape: (..., 4)
+    """
+    q = np.asarray(q)
+    norm_sq = np.sum(np.square(q), axis=-1, keepdims=True)
+    return conjugate(q) / np.maximum(norm_sq, 1e-12)
+
+
 def from_euler(roll: np.ndarray, pitch: np.ndarray, yaw: np.ndarray):
     """
     Euler convert to quaternion, with [x, y, z, w] format
@@ -287,7 +305,7 @@ def generate_random_shoemake(size):
         size = tuple(size)
 
     # Generate three uniform random numbers
-    u1, u2, u3 = np.random.uniform(0, 1, size=(3, *size))
+    u1, u2, u3 = np.random.uniform(0, 1, size=(3, *size)).astype(np.float32)
 
     # Shoemake's method
     sqrt1_u1 = np.sqrt(1 - u1)

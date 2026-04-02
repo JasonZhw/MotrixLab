@@ -1,0 +1,100 @@
+<mujoco model="dm-lqr-6-2">
+  <include file="../../common/materials.xml"/>
+
+  <compiler angle="radian" inertiafromgeom="true"/>
+  <option timestep="0.01" integrator="RK4" gravity="0 0 -9.81"/>
+
+  <statistic center="0 0 0.12" extent="2.8" />
+
+  <default>
+    <geom type="sphere" size="0.04" density="300" material="self" contype="0" conaffinity="0"/>
+    <joint type="slide" axis="1 0 0" damping="0.3" limited="true" range="-1.5 1.5"/>
+    <motor ctrlrange="-1 1" ctrllimited="true" gear="1"/>
+  </default>
+
+  <asset>
+    <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.4 0.4 0.4" rgb2="0 0 0"
+      width="512"
+      height="512" />
+    <texture name="motphys-ground" type="2d" file="../../common/motphys-ground.png" />
+    <material name="motphys-ground" texture="motphys-ground" texuniform="true"
+      texrepeat="0.4 0.4" />
+  </asset>
+
+  <worldbody>
+    <light name="light" dir="0 1 -1" directional="true" />
+    <camera name="side" pos="0 -4.2 0" quat="0.707 0.707 0 0" mode="trackcom" />
+    <camera name="back" pos="-1.0 -2.6 1.4" xyaxes="0.55 -0.84 0 0.24 0.16 0.96" />
+    <geom name="ground" type="plane" pos="0 0 -0.02" size="0 0 0.01"
+      material="motphys-ground"
+      contype="0"
+      conaffinity="0" />
+    <geom
+      name="origin"
+      type="capsule"
+      fromto="0 -1.0 0.05 0 1.0 0.05"
+      size="0.01"
+      rgba="1 0.8 0.2 1"
+      contype="0"
+      conaffinity="0"/>
+
+    <body name="m0" pos="0 -0.5 0.1">
+      <joint name="q0"/>
+      <geom name="geom_0"/>
+    </body>
+
+    <body name="m1" pos="0 -0.3 0.1">
+      <joint name="q1"/>
+      <geom name="geom_1"/>
+    </body>
+
+    <body name="m2" pos="0 -0.1 0.1">
+      <joint name="q2"/>
+      <geom name="geom_2"/>
+    </body>
+
+    <body name="m3" pos="0 0.1 0.1">
+      <joint name="q3"/>
+      <geom name="geom_3"/>
+    </body>
+
+    <body name="m4" pos="0 0.3 0.1">
+      <joint name="q4"/>
+      <geom name="geom_4"/>
+    </body>
+
+    <body name="m5" pos="0 0.5 0.1">
+      <joint name="q5"/>
+      <geom name="geom_5"/>
+    </body>
+
+  </worldbody>
+
+  <tendon>
+    <fixed name="rope_01" limited="false" width="0.016" rgba="0.9 0.82 0.74 1" stiffness="50" damping="2" springlength="0">
+      <joint joint="q0" coef="-1"/>
+      <joint joint="q1" coef="1"/>
+    </fixed>
+    <fixed name="rope_12" stiffness="50" damping="2" springlength="0" width="0.016" rgba="0.9 0.82 0.74 1">
+      <joint joint="q1" coef="-1"/>
+      <joint joint="q2" coef="1"/>
+    </fixed>
+    <fixed name="rope_23" stiffness="50" damping="2" springlength="0" width="0.016" rgba="0.9 0.82 0.74 1">
+      <joint joint="q2" coef="-1"/>
+      <joint joint="q3" coef="1"/>
+    </fixed>
+    <fixed name="rope_34" stiffness="50" damping="2" springlength="0" width="0.016" rgba="0.9 0.82 0.74 1">
+      <joint joint="q3" coef="-1"/>
+      <joint joint="q4" coef="1"/>
+    </fixed>
+    <fixed name="rope_45" stiffness="50" damping="2" springlength="0" width="0.016" rgba="0.9 0.82 0.74 1">
+      <joint joint="q4" coef="-1"/>
+      <joint joint="q5" coef="1"/>
+    </fixed>
+  </tendon>
+
+  <actuator>
+    <motor name="motor_4" joint="q4"/>
+    <motor name="motor_5" joint="q5"/>
+  </actuator>
+</mujoco>

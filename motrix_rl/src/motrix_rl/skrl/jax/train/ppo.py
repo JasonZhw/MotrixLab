@@ -19,9 +19,7 @@ import flax.linen as nn
 import jax.numpy as jnp
 import numpy as np
 from skrl.agents.jax.ppo import PPO as BasePPO
-from skrl.agents.jax.ppo import PPO_DEFAULT_CONFIG
 from skrl.envs.jax import Wrapper
-from skrl.memories.jax import RandomMemory
 from skrl.models.jax import DeterministicMixin, GaussianMixin, Model
 from skrl.resources.preprocessors.jax import RunningStandardScaler
 from skrl.resources.schedulers.jax import KLAdaptiveRL
@@ -29,42 +27,69 @@ from skrl.trainers.jax import SequentialTrainer
 from skrl.utils import set_seed
 
 from motrix_envs import registry as env_registry
-from motrix_rl import registry
+from motrix_rl import registry, utils
 from motrix_rl.skrl import get_log_dir
-from motrix_rl.skrl.cfg import PPOCfg
+from motrix_rl.skrl.config import SkrlCfg, SkrlMemoryCfg
 from motrix_rl.skrl.jax import wrap_env
 
 
-def _get_cfg(
-    rlcfg: PPOCfg,
+def _instantiate_memory(memory_cfg: SkrlMemoryCfg, memory_size: int, num_envs: int, device) -> Any:
+    """Instantiate a SKRL Memory class based on configuration.
+
+    Args:
+        memory_cfg: Memory configuration with class_name and settings
+        memory_size: Size of the memory buffer
+        num_envs: Number of parallel environments
+        device: Device to place memory on
+
+    Returns:
+        Instantiated SKRL Memory object
+
+    Raises:
+        ValueError: If class_name is not supported
+    """
+    from skrl.memories.jax import RandomMemory
+
+    # Map class_name to actual Memory class
+    memory_classes = {
+        "RandomMemory": RandomMemory,
+    }
+
+    class_name = memory_cfg.class_name
+    if class_name not in memory_classes:
+        raise ValueError(f"Unsupported memory class_name: {class_name}. Supported: {list(memory_classes.keys())}")
+
+    MemoryClass = memory_classes[class_name]
+    return MemoryClass(memory_size=memory_size, num_envs=num_envs, device=device)
+
+
+def _add_runtime_config(
+    cfg: dict,
     env: Wrapper,
     log_dir: str = None,
 ) -> dict:
-    # configure and instantiate the agent (visit its documentation to see all the options)
-    # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html#configuration-and-hyperparameters
-    cfg = PPO_DEFAULT_CONFIG.copy()
-    cfg["rollouts"] = rlcfg.rollouts  # memory_size
-    cfg["learning_epochs"] = rlcfg.learning_epochs
-    cfg["mini_batches"] = rlcfg.mini_batches  # mini_batch_size = rollouts * num_envs / mini_batches
-    cfg["discount_factor"] = rlcfg.discount_factor
-    cfg["lambda"] = rlcfg.lambda_param
-    cfg["learning_rate"] = rlcfg.learning_rate
-    cfg["learning_rate_scheduler"] = KLAdaptiveRL
-    cfg["learning_rate_scheduler_kwargs"] = {"kl_threshold": rlcfg.learning_rate_scheduler_kl_threshold}
-    cfg["random_timesteps"] = rlcfg.random_timesteps
-    cfg["learning_starts"] = rlcfg.learning_starts
-    cfg["grad_norm_clip"] = rlcfg.grad_norm_clip
-    cfg["ratio_clip"] = rlcfg.ratio_clip
-    cfg["value_clip"] = rlcfg.value_clip
-    cfg["clip_predicted_values"] = rlcfg.clip_predicted_values
-    cfg["entropy_loss_scale"] = rlcfg.entropy_loss_scale
-    cfg["value_loss_scale"] = rlcfg.value_loss_scale
-    cfg["kl_threshold"] = rlcfg.kl_threshold
-    if rlcfg.rewards_shaper_scale != 1.0:
-        cfg["rewards_shaper"] = lambda reward, timestep, timesteps: reward * rlcfg.rewards_shaper_scale
+    """Add runtime-specific configuration to the base agent config.
+
+    Args:
+        cfg: Base configuration from agent.to_dict() (will be modified in-place)
+        env: SKRL environment wrapper
+        log_dir: Optional logging directory path
+
+    Returns:
+        The same cfg dict with runtime values added (modified in-place for convenience)
+    """
+    # Convert learning_rate_scheduler from string to actual class (if configured)
+    if cfg.get("learning_rate_scheduler") == "KLAdaptiveLR":
+        cfg["learning_rate_scheduler"] = KLAdaptiveRL
+    # Otherwise keep as-is (None or other scheduler type)
+
+    # Add rewards shaper (conditional based on rewards_shaper_scale in cfg)
+    if cfg.get("rewards_shaper_scale", 1.0) != 1.0:
+        cfg["rewards_shaper"] = lambda reward, timestep, timesteps: reward * cfg["rewards_shaper_scale"]
     else:
         cfg["rewards_shaper"] = None
-    cfg["time_limit_bootstrap"] = rlcfg.time_limit_bootstrap
+
+    # Add preprocessors (require runtime env values)
     cfg["state_preprocessor"] = RunningStandardScaler
     cfg["state_preprocessor_kwargs"] = {
         "size": env.observation_space,
@@ -72,10 +97,15 @@ def _get_cfg(
     }
     cfg["value_preprocessor"] = RunningStandardScaler
     cfg["value_preprocessor_kwargs"] = {"size": 1, "device": env.device}
-    # logging to TensorBoard and write checkpoints (in timesteps)
+
+    # Add experiment configuration (handle -1 -> "auto" conversion)
     if log_dir:
-        cfg["experiment"]["write_interval"] = rlcfg.check_point_interval
-        cfg["experiment"]["checkpoint_interval"] = rlcfg.check_point_interval
+        cfg["experiment"]["write_interval"] = (
+            "auto" if cfg["experiment"]["write_interval"] == -1 else cfg["experiment"]["write_interval"]
+        )
+        cfg["experiment"]["checkpoint_interval"] = (
+            "auto" if cfg["experiment"]["checkpoint_interval"] == -1 else cfg["experiment"]["checkpoint_interval"]
+        )
         cfg["experiment"]["directory"] = log_dir
     else:
         cfg["experiment"]["write_interval"] = 0
@@ -146,7 +176,7 @@ class Trainer:
     _trainer: SequentialTrainer
     _env_name: str
     _sim_backend: str
-    _rlcfg: PPOCfg
+    _rlcfg: SkrlCfg
     _enable_render: bool
 
     def __init__(
@@ -158,7 +188,7 @@ class Trainer:
     ) -> None:
         rlcfg = registry.default_rl_cfg(env_name, "skrl", backend="jax")
         if cfg_override is not None:
-            rlcfg = rlcfg.replace(**cfg_override)
+            rlcfg = utils.cfg_override(rlcfg, cfg_override)
         self._rlcfg = rlcfg
         self._env_name = env_name
         self._sim_backend = sim_backend
@@ -171,13 +201,16 @@ class Trainer:
         rlcfg = self._rlcfg
         env = env_registry.make(self._env_name, sim_backend=self._sim_backend, num_envs=rlcfg.num_envs)
 
-        set_seed(rlcfg.seed)
+        set_seed(rlcfg.runner.seed)
         skrl_env = wrap_env(env, self._enable_render)
         models = self._make_model(skrl_env, rlcfg)
-        ppo_cfg = _get_cfg(rlcfg, skrl_env, log_dir=get_log_dir(self._env_name))
-        agent = self._make_agent(models, skrl_env, ppo_cfg)
+        # Get base configuration from config object
+        ppo_cfg = rlcfg.runner.agent.to_dict()
+        # Add runtime-specific configuration
+        _add_runtime_config(ppo_cfg, skrl_env, log_dir=get_log_dir(self._env_name, rllib="skrl", agent_name="PPO"))
+        agent = self._make_agent(models, skrl_env, ppo_cfg, rlcfg.runner.memory)
         cfg_trainer = {
-            "timesteps": rlcfg.max_batch_env_steps,
+            "timesteps": rlcfg.runner.trainer.timesteps,
             "headless": not self._enable_render,
         }
         trainer = SequentialTrainer(cfg=cfg_trainer, env=skrl_env, agents=agent)
@@ -189,11 +222,14 @@ class Trainer:
         rlcfg = self._rlcfg
         env = env_registry.make(self._env_name, sim_backend=self._sim_backend, num_envs=rlcfg.play_num_envs)
 
-        set_seed(rlcfg.seed)
+        set_seed(rlcfg.runner.seed)
         env = wrap_env(env, self._enable_render)
         models = self._make_model(env, rlcfg)
-        ppo_cfg = _get_cfg(rlcfg, env)
-        agent = self._make_agent(models, env, ppo_cfg)
+        # Get base configuration from config object
+        ppo_cfg = rlcfg.runner.agent.to_dict()
+        # Add runtime-specific configuration
+        _add_runtime_config(ppo_cfg, env)
+        agent = self._make_agent(models, env, ppo_cfg, rlcfg.runner.memory)
         agent.load(policy)
         obs, _ = env.reset()
 
@@ -208,57 +244,63 @@ class Trainer:
             if delta_time < 1.0 / fps:
                 time.sleep(1.0 / fps - delta_time)
 
-    def _make_model(self, env: Wrapper, rlcfg: PPOCfg) -> dict[str, Model]:
-        # define models (stochastic and deterministic models) using mixins
+    def _make_model(self, env: Wrapper, rlcfg: SkrlCfg) -> dict[str, Model]:
+        _activation_fn = {
+            "elu": nn.elu,
+            "relu": nn.relu,
+            "tanh": nn.tanh,
+            "sigmoid": nn.sigmoid,
+            "leaky_relu": nn.leaky_relu,
+            "selu": nn.selu,
+        }
+
+        policy_cfg = rlcfg.runner.models.policy
+        value_cfg = rlcfg.runner.models.value
+
+        def resolve_activations(activation_names: list[str], hiddens: list[int]) -> list:
+            if len(activation_names) == 1:
+                return [_activation_fn[activation_names[0]]] * len(hiddens)
+            if len(activation_names) != len(hiddens):
+                raise ValueError(
+                    f"hidden_activation length ({len(activation_names)}) must be 1 or "
+                    f"match hiddens length ({len(hiddens)})"
+                )
+            return [_activation_fn[name] for name in activation_names]
+
+        policy_acts = resolve_activations(policy_cfg.hidden_activation, policy_cfg.hiddens)
+        value_acts = resolve_activations(value_cfg.hidden_activation, value_cfg.hiddens)
+
         class Policy(GaussianMixin, Model):
-            def __init__(
-                self,
-                observation_space,
-                action_space,
-                device=None,
-                clip_actions=False,
-                clip_log_std=True,
-                min_log_std=-20,
-                max_log_std=2,
-                reduction="sum",
-                **kwargs,
-            ):
+            def __init__(self, observation_space, action_space, device=None, **kwargs):
                 Model.__init__(self, observation_space, action_space, device, **kwargs)
                 GaussianMixin.__init__(
                     self,
-                    clip_actions,
-                    clip_log_std,
-                    min_log_std,
-                    max_log_std,
-                    reduction,
+                    policy_cfg.clip_actions,
+                    policy_cfg.clip_log_std,
+                    policy_cfg.min_log_std,
+                    policy_cfg.max_log_std,
+                    policy_cfg.reduction,
                 )
 
-            @nn.compact  # marks the given module method allowing inlined submodules
+            @nn.compact
             def __call__(self, inputs, role):
                 x = inputs["states"]
-                for size in rlcfg.policy_hidden_layer_sizes:
-                    x = nn.elu(nn.Dense(size)(x))
+                for size, act in zip(policy_cfg.hiddens, policy_acts):
+                    x = act(nn.Dense(size)(x))
                 x = nn.Dense(self.num_actions)(x)
-                log_std = self.param("log_std", lambda _: jnp.ones(self.num_actions))
+                log_std = self.param("log_std", lambda _: jnp.full(self.num_actions, float(policy_cfg.initial_log_std)))
                 return x, log_std, {}
 
         class Value(DeterministicMixin, Model):
-            def __init__(
-                self,
-                observation_space,
-                action_space,
-                device=None,
-                clip_actions=False,
-                **kwargs,
-            ):
+            def __init__(self, observation_space, action_space, device=None, **kwargs):
                 Model.__init__(self, observation_space, action_space, device, **kwargs)
-                DeterministicMixin.__init__(self, clip_actions)
+                DeterministicMixin.__init__(self, value_cfg.clip_actions)
 
-            @nn.compact  # marks the given module method allowing inlined submodules
+            @nn.compact
             def __call__(self, inputs, role):
                 x = inputs["states"]
-                for size in rlcfg.value_hidden_layer_sizes:
-                    x = nn.elu(nn.Dense(size)(x))
+                for size, act in zip(value_cfg.hiddens, value_acts):
+                    x = act(nn.Dense(size)(x))
                 x = nn.Dense(1)(x)
                 return x, {}
 
@@ -268,21 +310,26 @@ class Trainer:
             action_space=env.action_space,
             device=env.device,
         )
-
         models["value"] = Value(
             observation_space=env.observation_space,
             action_space=env.action_space,
             device=env.device,
         )
 
-        # instantiate models' state dict
-
         for role, model in models.items():
             model.init_state_dict(role)
+
         return models
 
-    def _make_agent(self, models: dict[str, Model], env: Wrapper, ppo_cfg: dict[str, Any]) -> PPO:
-        memory = RandomMemory(memory_size=ppo_cfg["rollouts"], num_envs=env.num_envs, device=env.device)
+    def _make_agent(
+        self, models: dict[str, Model], env: Wrapper, ppo_cfg: dict[str, Any], memory_cfg: SkrlMemoryCfg
+    ) -> PPO:
+        # Use memory_size from SkrlMemoryCfg, fall back to rollouts if -1
+        memory_size = memory_cfg.memory_size
+        if memory_size == -1:
+            memory_size = ppo_cfg["rollouts"]
+
+        memory = _instantiate_memory(memory_cfg, memory_size, env.num_envs, env.device)
 
         agent = PPO(
             models=models,

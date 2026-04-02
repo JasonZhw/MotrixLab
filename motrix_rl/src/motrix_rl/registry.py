@@ -15,19 +15,18 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import Callable, Type, TypeVar
+from typing import Any, Callable, Type, TypeVar
 
 from motrix_envs import registry as env_registry
-from motrix_rl.base import BaseRLCfg
 
 logger = logging.getLogger(__name__)
 
-TRLCfg = TypeVar("TRLCfg", bound=BaseRLCfg)
+TRLCfg = TypeVar("TRLCfg")
 
 
 @dataclass
 class EnvRlCfgs:
-    cfgs: dict[str, dict[str, Type[BaseRLCfg]]] = field(default_factory=dict)
+    cfgs: dict[str, dict[str, Type]] = field(default_factory=dict)
     """
     The RL configuration classes available for this environment.
     Structure: {rl_framework: {backend: config_class}}
@@ -39,7 +38,7 @@ class EnvRlCfgs:
 _rlcfgs: dict[str, EnvRlCfgs] = {}
 
 
-def _register_rlcfg(env_name: str, rllib: str, backend: str, train_cfg_cls: Type[BaseRLCfg]):
+def _register_rlcfg(env_name: str, rllib: str, backend: str, train_cfg_cls: Type):
     """
     Register a training configuration class for an environment, reinforcement learning framework, and backend.
 
@@ -60,9 +59,39 @@ def _register_rlcfg(env_name: str, rllib: str, backend: str, train_cfg_cls: Type
     _rlcfgs[env_name].cfgs[rllib][backend] = train_cfg_cls
 
 
+def _infer_framework_from_class(cls: Type) -> str:
+    """Infer RL framework name from the class's parent class.
+
+    Args:
+        cls: Configuration class to inspect
+
+    Returns:
+        Framework name ("skrl" or "rslrl")
+
+    Raises:
+        ValueError: If framework cannot be determined from parent class
+    """
+    # Import here to avoid circular imports
+    from motrix_rl.rslrl.cfg import RslrlCfg
+    from motrix_rl.skrl.config import SkrlCfg
+
+    # Check entire MRO (Method Resolution Order) for framework base classes
+    for base in cls.__mro__:
+        if base is SkrlCfg:
+            return "skrl"
+        elif base is RslrlCfg:
+            return "rslrl"
+
+    raise ValueError(
+        f"Cannot infer RL framework from {cls.__name__}. Class must inherit from either SkrlCfg or RslrlCfg."
+    )
+
+
 def rlcfg(env_name: str, backend: str = None) -> Callable[[Type[TRLCfg]], Type[TRLCfg]]:
     """
-    Decorator to register a training configuration class for an environment, RL framework, and backend.
+    Decorator to register a training configuration class for an environment and backend.
+
+    The RL framework (skrl/rslrl) is automatically inferred from the parent class.
 
     Args:
         env_name: Environment name
@@ -70,15 +99,18 @@ def rlcfg(env_name: str, backend: str = None) -> Callable[[Type[TRLCfg]], Type[T
     """
 
     def decorator(cls: Type[TRLCfg]) -> Type[TRLCfg]:
+        # Infer framework from parent class
+        rl_framework = _infer_framework_from_class(cls)
+
         backends = ["jax", "torch"] if backend is None else [backend]
         for b in backends:
-            _register_rlcfg(env_name, "skrl", b, cls)
+            _register_rlcfg(env_name, rl_framework, b, cls)
         return cls
 
     return decorator
 
 
-def default_rl_cfg(env_name: str, rllib: str, backend: str) -> BaseRLCfg:
+def default_rl_cfg(env_name: str, rllib: str, backend: str) -> Any:
     """
     Get the default training configuration for an environment, reinforcement learning framework, and backend.
 

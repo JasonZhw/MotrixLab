@@ -23,8 +23,6 @@ from motrix_envs.np.env import NpEnv, NpEnvState
 
 
 def _sanitize_joint_limits(low: np.ndarray, high: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    low = low.copy()
-    high = high.copy()
     low = np.where(np.isfinite(low), low, -np.pi)
     high = np.where(np.isfinite(high), high, np.pi)
     return low, high

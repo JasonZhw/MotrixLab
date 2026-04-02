@@ -8,3 +8,4 @@ node_modules
 .gitlab-ci.yml
 docs/build/
 .readthedocs.yaml
+CLAUDE.md

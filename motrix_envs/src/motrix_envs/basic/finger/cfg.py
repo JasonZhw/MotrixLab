@@ -28,7 +28,7 @@ turn_hard_model_file = os.path.dirname(__file__) + "/finger_turn_hard.xml"
 @dataclass
 class FingerBaseCfg(EnvCfg):
     model_file: str = model_file
-    max_episode_seconds: float = 20.0
+    max_episode_seconds: float = 10.0
     sim_dt: float = 0.01
     ctrl_dt: float = 0.02
 

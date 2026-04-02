@@ -1,6 +1,6 @@
 [project]
 name = "motrix-lab"
-version = "0.2.0"
+version = "0.3.0"
 description = "A general-purpose machine learning architecture designed for robot training"
 authors = [{ name = "Motphys", email = "developers@motphys.com" }]
 requires-python = "==3.10.*"

@@ -103,45 +103,18 @@ uv run scripts/play.py --env acrobot --policy runs/acrobot/nn/best_policy.pickle
 
 ### 环境配置
 
-```python
-@dataclass
-class AcrobotEnvCfg(EnvCfg):
-    model_file: str = ".../acrobot.xml"  # MJCF 模型
-    max_episode_seconds: float = 10.0
-    sim_dt: float = 0.01
-    ctrl_dt: float = 0.02
-    reset_noise_scale: float = 0.1
-    render_spacing: float = 2.0
+```{literalinclude} ../../../../motrix_envs/src/motrix_envs/basic/acrobot/cfg.py
+:language: python
+:start-after: '# -- docs-tag-start: acrobot-env-cfg --'
+:end-before: '# -- docs-tag-end: acrobot-env-cfg --'
 ```
 
 ### 训练配置（PPO 示例）
 
-```python
-@rlcfg("acrobot", backend="jax")
-@dataclass
-class AcrobotPPO(PPOCfg):
-    max_env_steps: int = 60_000_000
-    check_point_interval: int = 500
-
-    # 覆盖 PPO 配置
-    policy_hidden_layer_sizes: tuple[int, ...] = (32, 32)
-    value_hidden_layer_sizes: tuple[int, ...] = (32, 32)
-    rollouts: int = 64
-    learning_epochs: int = 5
-    mini_batches: int = 8
-    learning_rate: float = 3e-4
-    grad_norm_clip: float = 0.1
-    clip_predicted_values: bool = False
-    value_clip: float = 10.0
-    entropy_loss_scale: float = 0.1
-    learning_rate_scheduler_kl_threshold: float = 0.02
-    discount_factor: float = 0.995
-    lambda_param: float = 0.97
-    ratio_clip: float = 0.2
-    value_loss_scale: float = 0.5
-    random_timesteps: int = 0
-    learning_starts: int = 0
-    kl_threshold: float = 0.03
+```{literalinclude} ../../../../motrix_rl/src/motrix_rl/tasks/acrobot.py
+:language: python
+:start-after: '# -- docs-tag-start: acrobot-train-cfg --'
+:end-before: '# -- docs-tag-end: acrobot-train-cfg --'
 ```
 
 ---

@@ -234,7 +234,7 @@ class Go2WalkTask(NpEnv):
             high=self.cfg.commands.vel_limit[1],
             size=(num_envs, 3),
         )
-        return commands
+        return commands.astype(np.float32)
 
     def update_reward(self, state: NpEnvState) -> NpEnvState:
         data = state.data

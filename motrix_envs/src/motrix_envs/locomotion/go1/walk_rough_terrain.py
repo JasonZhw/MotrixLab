@@ -271,7 +271,7 @@ class Go1WalkRoughTask(NpEnv):
             size=(num_envs, 3),
         )
         # commands[:, 2] = 0
-        return commands
+        return commands.astype(np.float32)
 
     def update_reward(self, state: NpEnvState) -> NpEnvState:
         data = state.data
