@@ -139,12 +139,90 @@ class Go1WalkNpEnvCfg(EnvCfg):
     sim_dt: float = 0.01
     ctrl_dt: float = 0.01
 
+@registry.envcfg("go1-flat-terrain-hop")
+@dataclass
+class Go1HopNpEnvCfg(Go1WalkNpEnvCfg):
+    @dataclass
+    class Commands:
+        vel_limit = [
+            [0.8, -0.15, -0.2],  # min: forward-biased command for hopping gait
+            [1.8, 0.15, 0.2],
+        ]
+
+    @dataclass
+    class RewardConfig:
+        scales: dict[str, float] = field(
+            default_factory=lambda: {
+                "termination": -0.0,
+                "tracking_lin_vel": 1.2,
+                "tracking_ang_vel": 0.5,
+                "lin_vel_z": -0.8,
+                "ang_vel_xy": -0.05,
+                "orientation": -0.0,
+                "torques": -0.000006,
+                "dof_vel": -0.0,
+                "dof_acc": -1.2e-7,
+                "base_height": -0.0,
+                "feet_air_time": 2.2,
+                "collision": -1.0 * 0,
+                "action_rate": -0.0005,
+                "stand_still": -0.0,
+                "hip_pos": -0.35,
+                "calf_pos": -0.3 * 0,
+            }
+        )
+
+        tracking_sigma: float = 0.25
+        max_foot_height: float = 0.1
+
+    commands: Commands = field(default_factory=Commands)
+    reward_config: RewardConfig = field(default_factory=RewardConfig)
+
 
 @registry.envcfg("go1-rough-terrain-walk")
 @dataclass
 class Go1WalkNpRoughEnvCfg(Go1WalkNpEnvCfg):
     render_spacing: float = 0.0
     model_file: str = os.path.dirname(__file__) + "/xmls/scene_rough_terrain.xml"
+    # Use a higher threshold for rough terrain because reward scales differ from flat.
+    flat_phase_threshold: float = 0.9
+
+    @dataclass
+    class Commands:
+        vel_limit = [
+            [0.5, -0.0, 0.0],  # min: keep the task centered on forward walking first
+            [1.0, 0.0, 0.0],  # max: match the more stable stairs-style command range
+        ]
+
+    @dataclass
+    class RewardConfig:
+        scales: dict[str, float] = field(
+            default_factory=lambda: {
+                "termination": -0.0,
+                "tracking_lin_vel": 1.0,
+                "tracking_ang_vel": 0.5,
+                "lin_vel_z": -2.0,
+                "ang_vel_xy": -0.05,
+                "orientation": -0.0,
+                "torques": -0.00001,
+                "dof_vel": -0.0,
+                "dof_acc": -2.5e-7,
+                "base_height": -0.0,
+                "feet_air_time": 1.0,
+                "collision": -1.0,
+                "feet_stumble": -0.1,  # Penalize feet hitting vertical surfaces (rough-specific)
+                "action_rate": -0.001,
+                "stand_still": -0.0,
+                "hip_pos": -1,
+                "calf_pos": -0.3,
+            }
+        )
+
+        tracking_sigma: float = 0.25
+        max_foot_height: float = 0.1
+
+    commands: Commands = field(default_factory=Commands)
+    reward_config: RewardConfig = field(default_factory=RewardConfig)
 
 
 @registry.envcfg("go1-stairs-terrain-walk")

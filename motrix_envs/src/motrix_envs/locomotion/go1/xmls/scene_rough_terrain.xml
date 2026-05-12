@@ -24,4 +24,12 @@
     <geom name="floor" pos="0 40 0" type="hfield" hfield="hfield-plane" material="motphys-ground"
       contype="1" conaffinity="0" priority="1" friction="0.6" />
   </worldbody>
+
+  <sensor>
+    <contact name="FR_foot_contact" geom2="FR_foot" geom1="floor_rough" data="normal" num="1" />
+    <contact name="RR_foot_contact" geom2="RR_foot" geom1="floor_rough" data="normal" num="1" />
+    <contact name="FL_foot_contact" geom2="FL_foot" geom1="floor_rough" data="normal" num="1" />
+    <contact name="RL_foot_contact" geom2="RL_foot" geom1="floor_rough" data="normal" num="1" />
+  </sensor>
+
 </mujoco>

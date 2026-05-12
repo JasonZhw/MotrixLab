@@ -45,7 +45,7 @@ class Go1WalkRoughTask(NpEnv):
             dtype=np.float32,
         )
 
-        go1_init_height = 0.3
+        go1_init_height = 0.25 
         self.reset_offset = self._generate_init_offsets(go1_init_height)
         self._init_dof_pos = self._model.compute_init_dof_pos()
         geom_floor_pos = self._model.get_geom("floor").local_pose[:3]
@@ -61,9 +61,10 @@ class Go1WalkRoughTask(NpEnv):
         num_gravity = 3
         num_actions = model.num_actuators
         num_command = 3
+        num_contact_force = 12  # 4 feet * 3D force vector
 
-        num_obs = num_dof_vel + num_joint_angle + num_gravity + num_actions + num_command
-        assert num_obs == 48
+        num_obs = num_dof_vel + num_joint_angle + num_gravity + num_actions + num_command + num_contact_force
+        assert num_obs == 60
 
         self._observation_space = gym.spaces.Box(-np.inf, np.inf, (num_obs,), dtype=np.float32)
 
@@ -221,6 +222,7 @@ class Go1WalkRoughTask(NpEnv):
         noisy_joint_vel = self.get_dof_vel(data) * self.cfg.normalization.dof_vel
         command = info["commands"] * self.commands_scale
         last_actions = info["current_actions"]
+        contact_force = info["contact_force"]
 
         obs = np.hstack(
             [
@@ -231,6 +233,7 @@ class Go1WalkRoughTask(NpEnv):
                 noisy_joint_vel,
                 last_actions,
                 command,
+                contact_force,
             ]
         )
         return obs
@@ -238,6 +241,7 @@ class Go1WalkRoughTask(NpEnv):
     def update_observation(self, state: NpEnvState):
         data = state.data
         self.border_check(data, state.info)
+        state.info["contact_force"] = self.update_contact_force(state)
         obs = self._get_obs(data, state.info)
         cquerys = self._model.get_contact_query(data)
         foot_contact = cquerys.is_colliding(self.foot_check)
@@ -257,6 +261,17 @@ class Go1WalkRoughTask(NpEnv):
         return state.replace(
             terminated=terminated,
         )
+
+    def update_contact_force(self, state: NpEnvState):
+        data = state.data
+        pose = self._body.get_pose(data)
+        base_quat = pose[:, 3:7]
+        force = []
+        for foot in self.cfg.sensor.feet:
+            contact_force = self._model.get_sensor_value(foot + "_foot_contact", data)
+            contact_force = quaternion.rotate_inverse(base_quat, contact_force)
+            force.append(contact_force)
+        return np.concatenate(force, axis=1)
 
     def update_feet_air_time(self, info: dict):
         feet_air_time = info["feet_air_time"]
@@ -291,7 +306,7 @@ class Go1WalkRoughTask(NpEnv):
         rwd = np.where(terminated, np.array(0.0), rwd)
 
         average_reward = np.average(rwd)
-        if 0.9 < average_reward and self.training_level == 0:
+        if self.cfg.flat_phase_threshold < average_reward and self.training_level == 0:
             self.training_level = 1
         # elif 1.35 < average_reward and self.training_level == 1:
         #     self.training_level = 2
@@ -322,6 +337,7 @@ class Go1WalkRoughTask(NpEnv):
             "last_dof_vel": np.zeros((num_reset, self._num_action), dtype=np.float32),
             "feet_air_time": np.zeros((num_reset, self.foot_check_num), dtype=np.float32),
             "contacts": np.zeros((num_reset, self.foot_check_num), dtype=np.bool),
+            "contact_force": np.zeros((num_reset, 12), dtype=np.float32),
         }
         obs = self._get_obs(data, info)
         return obs, info
@@ -346,6 +362,7 @@ class Go1WalkRoughTask(NpEnv):
             "hip_pos": self._reward_hip_pos(data, commands),
             "calf_pos": self._reward_calf_pos(data, commands),
             "feet_air_time": self._reward_feet_air_time(commands, info),
+            "feet_stumble": self._reward_feet_stumble(data),
         }
 
     # ------------ reward functions----------------
@@ -425,6 +442,14 @@ class Go1WalkRoughTask(NpEnv):
             np.square(self.get_dof_pos(data)[:, self.calf_indices] - self.default_angles[self.calf_indices]),
             axis=1,
         )
+
+    def _reward_feet_stumble(self, data):
+        # Penalize feet hitting vertical surfaces
+        is_stumble = 0
+        for foot in self.cfg.sensor.feet:
+            contact_force = self._model.get_sensor_value(foot + "_foot_contact", data)
+            is_stumble += (np.linalg.norm(contact_force, axis=1) > 5 * np.abs(contact_force[:, 2])) * 1.0
+        return is_stumble
 
     def border_check(self, data, info: dict):
         # check whether the robot reaching into the terrain border and change the move direction

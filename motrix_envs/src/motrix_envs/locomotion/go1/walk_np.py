@@ -24,6 +24,7 @@ from motrix_envs.np.env import NpEnv, NpEnvState
 
 
 @registry.env("go1-flat-terrain-walk", sim_backend="np")
+@registry.env("go1-flat-terrain-hop", sim_backend="np")
 class Go1WalkTask(NpEnv):
     _init_dof_pos: np.ndarray
     _init_dof_vel: np.ndarray
@@ -317,7 +318,10 @@ class Go1WalkTask(NpEnv):
         # Penalize non flat base orientation
         pose = self._body.get_pose(data)
         base_quat = pose[:, 3:7]
+        # Rotate gravity vector into body frame to get body-relative uprightness
         gravity = quaternion.rotate_inverse(base_quat, self.gravity_vec)
+        # Penalize x and y components (tilting away from up vector)
+        # Squared error encourages symmetry about z-axis
         return np.sum(np.square(gravity[:, :2]), axis=1)
 
     def _reward_torques(self, data: mtx.SceneData):
@@ -338,6 +342,7 @@ class Go1WalkTask(NpEnv):
     def _reward_action_rate(self, info: dict):
         # Penalize changes in actions
         action_diff = info["current_actions"] - info["last_actions"]
+        # Squared error penalizes sudden changes in control
         return np.sum(np.square(action_diff), axis=1)
 
     def _reward_termination(self, done):

@@ -46,6 +46,16 @@ class skrl:
             # Configure training parameters
             trainer.timesteps = 30000
 
+    @rlcfg("go1-flat-terrain-hop")
+    @dataclass
+    class Go1HopFlatSkrlPpo(Go1WalkFlatSkrlPpo):
+        """Go1 robot hop on flat terrain - SKRL PPO configuration."""
+
+        def __post_init__(self):
+            super().__post_init__()
+            # Hopping gait is less stable at early stage; train slightly longer.
+            self.runner.trainer.timesteps = 40000
+
     @rlcfg("go1-rough-terrain-walk")
     @dataclass
     class Go1WalkRoughSkrlPpo(Go1WalkFlatSkrlPpo):
@@ -56,11 +66,13 @@ class skrl:
 
         def __post_init__(self):
             """Configure nested SKRL runner settings."""
+            super().__post_init__()
             runner = self.runner
             models = runner.models
             # Configure model architectures (larger network for rough terrain)
             models.policy.hiddens = [512, 256, 128]
             models.value.hiddens = [512, 256, 128]
+            self.runner.trainer.timesteps = 50000
 
     @rlcfg("go1-stairs-terrain-walk")
     @dataclass
@@ -92,6 +104,16 @@ class rslrl:
             algo.learning_rate = 3e-4
             algo.num_learning_epochs = 5
             algo.num_mini_batches = 3
+
+    @rlcfg("go1-flat-terrain-hop")
+    @dataclass
+    class Go1HopFlatRslrlPpo(Go1WalkFlatRslrlPpo):
+        """Go1 robot hop on flat terrain - RSLRL PPO configuration."""
+
+        def __post_init__(self):
+            super().__post_init__()
+            self.runner.experiment_name = "go1_flat_terrain_hop"
+            self.runner.max_iterations = 1300
 
     @rlcfg("go1-rough-terrain-walk")
     @dataclass
