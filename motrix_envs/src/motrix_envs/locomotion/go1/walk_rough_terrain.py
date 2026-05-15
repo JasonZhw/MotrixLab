@@ -47,6 +47,8 @@ class Go1WalkRoughTask(NpEnv):
 
         go1_init_height = 0.3
         self.reset_offset = self._generate_init_offsets(go1_init_height)
+        offset_order = np.argsort(self.reset_offset[:, 2])
+        self.easy_reset_offset = self.reset_offset[offset_order[:9]]
         self._init_dof_pos = self._model.compute_init_dof_pos()
         geom_floor_pos = self._model.get_geom("floor").local_pose[:3]
         geom_floor_pos[2] += go1_init_height
@@ -281,17 +283,18 @@ class Go1WalkRoughTask(NpEnv):
 
         rewards = {k: v * self.cfg.reward_config.scales[k] for k, v in reward_dict.items()}
         rwd = sum(rewards.values())
-        rwd = np.clip(rwd, 0.0, 10000.0)
+        # Allow stronger negative signals (e.g. termination) to pass through.
+        rwd = np.clip(rwd, -30.0, 10000.0)
         # for k,v in rewards.items():
         #     print(k,v)
         if "termination" in self.cfg.reward_config.scales:
             termination = self._reward_termination(terminated) * self.cfg.reward_config.scales["termination"]
-            rwd += termination
-
-        rwd = np.where(terminated, np.array(0.0), rwd)
+            # When terminated, replace the reward with the termination penalty so
+            # the agent receives a clear negative signal for terminal states.
+            rwd = np.where(terminated, termination, rwd)
 
         average_reward = np.average(rwd)
-        if 0.9 < average_reward and self.training_level == 0:
+        if 1.2 < average_reward and self.training_level == 0:
             self.training_level = 1
         # elif 1.35 < average_reward and self.training_level == 1:
         #     self.training_level = 2
@@ -305,10 +308,10 @@ class Go1WalkRoughTask(NpEnv):
         dof_vel = np.tile(self._init_dof_vel, (num_reset, 1))
 
         if self.training_level == 1:
-            num_period = 25
+            num_period = self.easy_reset_offset.shape[0]
             idx = generate_repeating_array(num_period, num_reset, self.reset_counter)
             self.reset_counter = (self.reset_counter + num_reset) % num_period
-            dof_pos[:, :3] = self.reset_offset[idx]
+            dof_pos[:, :3] = self.easy_reset_offset[idx]
 
         data.reset(self._model)
         data.set_dof_vel(dof_vel)

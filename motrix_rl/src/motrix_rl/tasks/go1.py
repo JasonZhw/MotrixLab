@@ -44,7 +44,7 @@ class skrl:
             agent.learning_rate = 3e-4
 
             # Configure training parameters
-            trainer.timesteps = 30000
+            trainer.timesteps = 40000
 
     @rlcfg("go1-rough-terrain-walk")
     @dataclass
@@ -56,6 +56,7 @@ class skrl:
 
         def __post_init__(self):
             """Configure nested SKRL runner settings."""
+            super().__post_init__()
             runner = self.runner
             models = runner.models
             # Configure model architectures (larger network for rough terrain)

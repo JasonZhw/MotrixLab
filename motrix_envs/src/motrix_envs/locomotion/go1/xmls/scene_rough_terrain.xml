@@ -13,7 +13,7 @@
   </visual>
 
   <asset>
-    <hfield name="hfield" file="assets/heightmap.png" size="20 20 2.5 0.1" />
+    <hfield name="hfield" file="assets/heightmap_smooth.png" size="20 20 1.8 0.1" />
     <hfield name="hfield-plane" nrow="2" ncol="2" elevation="0 0 0 0" size="20 20 1.0 0.1" />
   </asset>
 

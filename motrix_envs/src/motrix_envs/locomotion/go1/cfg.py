@@ -146,6 +146,44 @@ class Go1WalkNpRoughEnvCfg(Go1WalkNpEnvCfg):
     render_spacing: float = 0.0
     model_file: str = os.path.dirname(__file__) + "/xmls/scene_rough_terrain.xml"
 
+    @dataclass
+    class Commands:
+        vel_limit = [
+            [-1.0, 0.0, 0.0],  # min: forward-only to stabilize rough terrain learning
+            [1.5, 0.2, 0.1],  # max
+        ]
+
+    @dataclass
+    class RewardConfig:
+        """Rough-terrain specific reward scaling that is less punitive to
+        allow exploration on hard terrain while still encouraging stable gait.
+        """
+        scales: dict[str, float] = field(
+            default_factory=lambda: {
+                "termination": -1.0,
+                "tracking_lin_vel": 1.1,
+                "tracking_ang_vel": 0.6,
+                "lin_vel_z": -0.5,
+                "ang_vel_xy": -0.02,
+                "orientation": -0.0,
+                "torques": -0.00001,
+                "dof_vel": -0.0,
+                "dof_acc": -2.5e-7,
+                "base_height": -0.0,
+                "feet_air_time": 1.2,
+                "collision": -1.0 * 0,
+                "feet_stumble": -0.05,
+                "action_rate": -0.0005,
+                "stand_still": -0.0,
+                "hip_pos": -0.2,
+                "calf_pos": -0.3 * 0,
+            }
+        )
+
+        tracking_sigma: float = 0.25
+        max_foot_height: float = 0.1
+
+    reward_config: RewardConfig = field(default_factory=RewardConfig)
 
 @registry.envcfg("go1-stairs-terrain-walk")
 @dataclass
