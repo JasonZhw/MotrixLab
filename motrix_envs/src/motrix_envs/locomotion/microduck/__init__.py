@@ -13,4 +13,5 @@
 # limitations under the License.
 # ==============================================================================
 
-from . import anymal_c, go1, go2, microduck  # noqa: F401 register envs
+from . import walk_np  # noqa: F401 register envs
+

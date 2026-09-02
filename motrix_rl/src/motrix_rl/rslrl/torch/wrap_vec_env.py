@@ -108,9 +108,22 @@ class RslrlNpEnvWrap(VecEnv):
         obs = TensorDict({"policy": obs_tensor}, batch_size=[self._num_envs], device=self._device)
 
         # Build extras dict (RSLRL calls it "extras" not "infos")
-        extras = {}
-        if "time_outs" in state.info:
-            extras["time_outs"] = torch.from_numpy(state.info["time_outs"]).to(self._device)
+        extras = {
+            # RSL-RL bootstraps value targets for time-limit truncations but not
+            # for physical terminations.
+            "time_outs": torch.from_numpy(state.truncated.astype(np.float32)).to(self._device),
+        }
+
+        # Preserve the per-term diagnostics exposed by Motrix environments.
+        # RSL-RL accepts a flat `log` dictionary and averages its tensors over
+        # the rollout before writing TensorBoard/W&B metrics.
+        log = {}
+        for group in ("Reward", "metrics"):
+            for name, value in state.info.get(group, {}).items():
+                if isinstance(value, np.ndarray):
+                    log[f"{group}/{name}"] = torch.from_numpy(value).to(self._device)
+        if log:
+            extras["log"] = log
 
         return obs, rewards, dones, extras
 

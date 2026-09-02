@@ -31,6 +31,7 @@ from . import (
     franka_open_cabinet,  # noqa: F401
     go1,  # noqa: F401
     go2,  # noqa: F401
+    microduck,  # noqa: F401
     pendulum,  # noqa: F401
     point_mass,  # noqa: F401
     rm65_open_cabinet,  # noqa: F401
