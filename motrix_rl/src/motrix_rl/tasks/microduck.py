@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""PPO defaults for Microduck flat-terrain velocity training."""
+"""PPO defaults for Microduck walking, rollers and ground-pick tasks."""
 
 from dataclasses import dataclass, field
 
@@ -22,6 +22,8 @@ from motrix_rl.rslrl.cfg import RslrlCfg, RslrlRunnerCfg
 from motrix_rl.skrl.config import SkrlCfg, SkrlRunnerCfg
 
 ENV_NAME = "microduck-flat-terrain-walk"
+ROLLERS_ENV_NAME = "microduck-flat-terrain-rollers"
+GROUND_PICK_ENV_NAME = "microduck-ground-pick"
 
 
 def _skrl_runner_cfg() -> SkrlRunnerCfg:
@@ -56,6 +58,21 @@ def _rslrl_runner_cfg() -> RslrlRunnerCfg:
     return cfg
 
 
+def _rollers_rslrl_runner_cfg() -> RslrlRunnerCfg:
+    cfg = _rslrl_runner_cfg()
+    cfg.max_iterations = 8_000
+    cfg.experiment_name = "microduck_flat_terrain_rollers_spin"
+    return cfg
+
+
+def _ground_pick_rslrl_runner_cfg() -> RslrlRunnerCfg:
+    cfg = _rslrl_runner_cfg()
+    cfg.max_iterations = 5_000
+    cfg.experiment_name = "microduck_ground_pick"
+    cfg.algorithm.entropy_coef = 0.015
+    return cfg
+
+
 class skrl:
     @rlcfg(ENV_NAME)
     @dataclass
@@ -72,3 +89,17 @@ class rslrl:
         num_envs: int = 4096
         play_num_envs: int = 16
         runner: RslrlRunnerCfg = field(default_factory=_rslrl_runner_cfg)
+
+    @rlcfg(ROLLERS_ENV_NAME)
+    @dataclass
+    class MicroduckRollersRslrlPpo(RslrlCfg):
+        num_envs: int = 1024
+        play_num_envs: int = 16
+        runner: RslrlRunnerCfg = field(default_factory=_rollers_rslrl_runner_cfg)
+
+    @rlcfg(GROUND_PICK_ENV_NAME)
+    @dataclass
+    class MicroduckGroundPickRslrlPpo(RslrlCfg):
+        num_envs: int = 1024
+        play_num_envs: int = 16
+        runner: RslrlRunnerCfg = field(default_factory=_ground_pick_rslrl_runner_cfg)

@@ -13,5 +13,4 @@
 # limitations under the License.
 # ==============================================================================
 
-from . import walk_np  # noqa: F401 register envs
-
+from . import ground_pick_np, rollers_np, walk_np  # noqa: F401 register envs

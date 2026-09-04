@@ -82,6 +82,16 @@ class MicroduckWalkTask(NpEnv):
         if self._model.num_actuators != NUM_ACTIONS:
             raise ValueError(f"Expected {NUM_ACTIONS} Microduck actuators, got {self._model.num_actuators}")
 
+        # Resolve policy joints by name: roller models interleave four passive
+        # wheel joints, but the deployment policy remains a 14-servo contract.
+        actuated_joints = tuple(self._model.get_joint(name) for name in JOINT_NAMES)
+        self._actuated_qpos_indices = np.asarray(
+            [joint.dof_pos_index for joint in actuated_joints], dtype=np.int64
+        )
+        self._actuated_qvel_indices = np.asarray(
+            [joint.dof_vel_index for joint in actuated_joints], dtype=np.int64
+        )
+
         self._action_space = gym.spaces.Box(-1.0, 1.0, (NUM_ACTIONS,), dtype=np.float32)
         self._observation_space = gym.spaces.Box(
             -np.inf,
@@ -90,13 +100,19 @@ class MicroduckWalkTask(NpEnv):
             dtype=np.float32,
         )
         self.default_angles = np.asarray(cfg.init_state.default_joint_angles, dtype=np.float32)
-        self.joint_limits = np.asarray(self._model.joint_limits, dtype=np.float32)
+        self.joint_limits = np.asarray(
+            [
+                [joint.range[0, 0] for joint in actuated_joints],
+                [joint.range[0, 1] for joint in actuated_joints],
+            ],
+            dtype=np.float32,
+        )
         self.gravity_vec = np.array([0.0, 0.0, -1.0], dtype=np.float32)
 
         self._init_dof_pos = np.asarray(self._model.compute_init_dof_pos(), dtype=np.float32)
         self._init_dof_pos[:3] = (0.0, 0.0, cfg.init_state.root_height)
         self._init_dof_pos[3:7] = (0.0, 0.0, 0.0, 1.0)
-        self._init_dof_pos[-NUM_ACTIONS:] = self.default_angles
+        self._init_dof_pos[self._actuated_qpos_indices] = self.default_angles
         self._init_dof_vel = np.zeros(self._model.num_dof_vel, dtype=np.float32)
         self._feet = tuple(self._model.get_site(name) for name in ("left_foot", "right_foot"))
         self._global_step = 0
@@ -117,10 +133,10 @@ class MicroduckWalkTask(NpEnv):
         return self._observation_space
 
     def get_dof_pos(self, data: mtx.SceneData) -> np.ndarray:
-        return self._body.get_joint_dof_pos(data)
+        return data.dof_pos[:, self._actuated_qpos_indices]
 
     def get_dof_vel(self, data: mtx.SceneData) -> np.ndarray:
-        return self._body.get_joint_dof_vel(data)
+        return data.dof_vel[:, self._actuated_qvel_indices]
 
     def get_local_linvel(self, data: mtx.SceneData) -> np.ndarray:
         return self._model.get_sensor_value(self.cfg.sensor.local_lin_vel, data)
@@ -251,9 +267,21 @@ class MicroduckWalkTask(NpEnv):
             raise RuntimeError(f"Microduck observation contract is invalid: {obs.shape}")
         return self._observation_noise(obs)
 
+    def _get_foot_contacts(self, data: mtx.SceneData) -> np.ndarray:
+        contacts = self._model.get_contact_query(data).is_colliding(self._foot_contact_pairs)
+        return contacts.reshape((self.num_envs, 2))
+
+    def _joint_limit_cost(self, dof_pos: np.ndarray) -> np.ndarray:
+        joint_range = self.joint_limits[1] - self.joint_limits[0]
+        limit_margin = np.maximum(0.1 * joint_range, 1.0e-3)
+        limit_distance = np.minimum(dof_pos - self.joint_limits[0], self.joint_limits[1] - dof_pos)
+        return np.sum(
+            np.square(np.clip((limit_margin - limit_distance) / limit_margin, 0.0, 1.0)),
+            axis=1,
+        )
+
     def update_observation(self, state: NpEnvState) -> NpEnvState:
-        contacts = self._model.get_contact_query(state.data).is_colliding(self._foot_contact_pairs)
-        contacts = contacts.reshape((self.num_envs, 2))
+        contacts = self._get_foot_contacts(state.data)
         foot_positions = np.stack([foot.get_position(state.data) for foot in self._feet], axis=1)
         state.info["foot_velocity"] = (foot_positions - state.info["foot_positions"]) / self.cfg.ctrl_dt
         state.info["foot_positions"] = foot_positions
@@ -290,17 +318,17 @@ class MicroduckWalkTask(NpEnv):
         pitch = np.random.uniform(-math.radians(init.max_pitch_deg), math.radians(init.max_pitch_deg), num_reset)
         yaw = np.random.uniform(-math.pi, math.pi, num_reset)
         dof_pos[:, 3:7] = quaternion.from_euler(roll, pitch, yaw)
-        dof_pos[:, -NUM_ACTIONS:] += np.random.uniform(
+        dof_pos[:, self._actuated_qpos_indices] += np.random.uniform(
             -init.joint_pos_noise,
             init.joint_pos_noise,
             size=(num_reset, NUM_ACTIONS),
         )
-        dof_pos[:, -NUM_ACTIONS:] = np.clip(
-            dof_pos[:, -NUM_ACTIONS:],
+        dof_pos[:, self._actuated_qpos_indices] = np.clip(
+            dof_pos[:, self._actuated_qpos_indices],
             self.joint_limits[0],
             self.joint_limits[1],
         )
-        dof_vel[:, -NUM_ACTIONS:] = np.random.uniform(
+        dof_vel[:, self._actuated_qvel_indices] = np.random.uniform(
             -init.joint_vel_noise,
             init.joint_vel_noise,
             size=(num_reset, NUM_ACTIONS),
@@ -399,11 +427,6 @@ class MicroduckWalkTask(NpEnv):
             axis=1,
         )
 
-        joint_range = self.joint_limits[1] - self.joint_limits[0]
-        limit_margin = np.maximum(0.1 * joint_range, 1.0e-3)
-        limit_distance = np.minimum(dof_pos - self.joint_limits[0], self.joint_limits[1] - dof_pos)
-        limit_cost = np.sum(np.square(np.clip((limit_margin - limit_distance) / limit_margin, 0.0, 1.0)), axis=1)
-
         return {
             "track_linear_velocity": centered_velocity_tracking(
                 commands[:, :2], lin_vel[:, :2], cfg.linear_tracking_std
@@ -429,6 +452,6 @@ class MicroduckWalkTask(NpEnv):
                 np.square((dof_vel - info["last_dof_vel"]) / self.cfg.ctrl_dt),
                 axis=1,
             ),
-            "joint_limits": limit_cost,
+            "joint_limits": self._joint_limit_cost(dof_pos),
             "termination": state.terminated.astype(np.float32),
         }
